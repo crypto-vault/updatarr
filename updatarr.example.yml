@@ -1,0 +1,34 @@
+# updatarr.yml — Configuration file for Updatarr
+# Place this file at /config/updatarr.yml inside the container, or ./updatarr.yml for local dev.
+
+radarr:
+  url: http://radarr:7878         # Your Radarr URL
+  api_key: YOUR_RADARR_API_KEY    # Settings > General > API Key
+
+mdblist:
+  api_key: YOUR_MDBLIST_API_KEY   # mdblist.com > Account > API
+
+# Cron schedule for automatic sync (set to null or remove to disable)
+# Default: every day at 4am
+schedule: "0 4 * * *"
+
+# List mappings: for each list, define which Radarr quality profile to force
+lists:
+
+  - list_id: "123456"                     # MDBList list ID (from the list URL)
+    list_name: "4K Must-Watch"            # Friendly name (optional, used in logs/UI)
+    quality_profile: "Ultra-HD"           # Must exactly match the profile name in Radarr
+    add_missing: false                    # If true, adds movies not already in Radarr
+    monitored: true                       # Monitored status when adding (add_missing only)
+    search_on_add: false                  # Trigger search when adding (add_missing only)
+    # root_folder: /movies                # Override root folder (add_missing only, defaults to first Radarr root)
+    # minimum_availability: released      # released | announced | inCinemas (add_missing only)
+
+  - list_id: "654321"
+    list_name: "HD Watchlist"
+    quality_profile: "HD - 720p/1080p"
+    add_missing: true
+    monitored: true
+    search_on_add: true
+    root_folder: /movies
+    minimum_availability: released

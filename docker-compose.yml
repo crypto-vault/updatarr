@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  updatarr:
+    build: .
+    # image: ghcr.io/yourusername/updatarr:latest  # Use this once published
+    container_name: updatarr
+    restart: unless-stopped
+    ports:
+      - "7777:7777"
+    volumes:
+      - ./config:/config
+    environment:
+      - TZ=UTC
+    # If Radarr is on the same Docker network:
+    # networks:
+    #   - arr-network
+
+# networks:
+#   arr-network:
+#     external: true
