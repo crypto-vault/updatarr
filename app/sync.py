@@ -75,14 +75,13 @@ async def _sync_list(
 
     try:
         items = await mdblist.get_list_items(list_cfg.list_id)
-        logger.info(f"  {len(items)} movies in list")
     except Exception as e:
         logger.error(f"  Failed to fetch list {list_cfg.list_id}: {e}")
         return
 
     for item in items:
-        tmdb_id = item.get("tmdb_id") or item.get("tmdbid")
-        title = item.get("title", f"TMDB:{tmdb_id}")
+        tmdb_id = mdblist.extract_tmdb_id(item)
+        title = mdblist.extract_title(item)
 
         if not tmdb_id:
             logger.warning(f"  Skipping item with no TMDB ID: {item}")
