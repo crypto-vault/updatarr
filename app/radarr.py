@@ -59,6 +59,44 @@ class RadarrClient:
             r.raise_for_status()
             return r.json()
 
+    async def lookup_by_imdb(self, imdb_id: str) -> dict | None:
+        """Lookup a movie by IMDB ID using Radarr's own metadata DB."""
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.get(
+                self._url("/movie/lookup"),
+                headers=self.headers,
+                params={"term": f"imdb:{imdb_id}"}
+            )
+            r.raise_for_status()
+            results = r.json()
+            return results[0] if results else None
+
+    async def search_movie(self, movie_id: int) -> None:
+        """Trigger a movie search via Radarr's command API."""
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(
+                self._url("/command"),
+                headers=self.headers,
+                json={"name": "MoviesSearch", "movieIds": [movie_id]}
+            )
+            r.raise_for_status()
+
+    async def delete_movie_file(self, file_id: int) -> None:
+        """Delete a movie file (moves to recycle bin if configured in Radarr)."""
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.delete(
+                self._url(f"/moviefile/{file_id}"),
+                headers=self.headers,
+            )
+            r.raise_for_status()
+
+    async def get_media_management(self) -> dict:
+        """Get Radarr media management settings (includes recycleBin path)."""
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.get(self._url("/config/mediamanagement"), headers=self.headers)
+            r.raise_for_status()
+            return r.json()
+
     async def lookup_movie(self, tmdb_id: int) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=30) as client:
             r = await client.get(

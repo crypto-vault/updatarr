@@ -1,3 +1,4 @@
+version: "3.8"
 
 services:
   updatarr:
@@ -12,9 +13,9 @@ services:
     environment:
       - TZ=UTC
     # If Radarr is on the same Docker network:
-    networks:
-       - arr-network
+    # networks:
+    #   - arr-network
 
-networks:
-   arr-network:
-     external: true
+# networks:
+#   arr-network:
+#     external: true

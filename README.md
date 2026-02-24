@@ -1,8 +1,24 @@
 # Updatarr
 
-**Forces Radarr quality profiles based on MDBList lists.**
+**Automatically manages Radarr quality profiles based on your watchlists, curated lists, and media requests.**
 
-Updatarr runs on a schedule (or on-demand), fetches your configured MDBList lists, and ensures every matching movie in Radarr has the quality profile you've assigned to that list. Optionally adds missing movies.
+Updatarr bridges the gap between *wanting* a movie in 4K and *having* it in 4K. It monitors external sources — MDBList lists, your Plex watchlist, and Ombi requests — and whenever a movie from those sources appears in your Radarr library, it automatically upgrades the quality profile to whatever you've configured for that source. No manual intervention, no forgetting to update profiles after adding a movie.
+
+### How it works
+
+On a schedule (or triggered manually), Updatarr fetches movies from your configured sources and compares them against your Radarr library. For each match, it sets the assigned quality profile on that movie, prompting Radarr to search for a better version if one isn't already available. It can also add movies that are missing from Radarr entirely.
+
+**Supported sources:**
+
+- **MDBList lists** — any public or private list on mdblist.com, each mappable to a different quality profile. Useful for curated 4K collections, award winners, director filmographies, or any list-based workflow.
+- **Plex watchlist** — movies you (and optionally your friends) have added to their Plex watchlist are automatically upgraded when they land in your library.
+- **Ombi requests** — movies requested through Ombi are upgraded when they appear in Radarr, ensuring requested content is grabbed at the right quality.
+
+### Downgrade queue
+
+Updatarr also works in reverse. The optional **global downgrade** feature identifies movies in your library that are currently stored in 4K (verified against your actual Plex library files, not just the Radarr profile) and have been in your collection long enough to no longer be a priority — based on how long ago they were added to Plex and a configurable age threshold. Qualifying movies are moved to a **downgrade queue** with a grace period before execution, giving you time to review and intervene.
+
+The queue is fully visual — poster cards with countdown timers showing days until each downgrade executes. Movies can be excluded permanently (they'll never be re-queued on future syncs) or restored to the queue at any time. The exclusion list is managed from the same page.
 
 ---
 

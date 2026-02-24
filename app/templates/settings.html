@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Updatarr — Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0d0f14;
+      --surface:  #151820;
+      --border:   #232635;
+      --accent:   #6c8eff;
+      --accent2:  #ff6b6b;
+      --green:    #4ade80;
+      --yellow:   #fbbf24;
+      --muted:    #4a5060;
+      --text:     #c9cdd8;
+      --text-dim: #6b7280;
+      --mono:     'JetBrains Mono', monospace;
+      --display:  'Syne', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 1000;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 32px; height: 56px; display: flex; align-items: center;
+      justify-content: space-between; position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-family: var(--display); font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #fff; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .logo span { color: var(--accent); }
+    nav { display: flex; gap: 4px; }
+    .nav-link {
+      padding: 6px 14px; border-radius: 5px; font-size: 12px; font-weight: 600;
+      color: var(--text-dim); text-decoration: none; transition: all 0.15s; letter-spacing: 0.5px;
+    }
+    .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .nav-link.active { color: var(--accent); background: rgba(108,142,255,0.1); }
+
+    /* ── Layout ── */
+    main { max-width: 860px; margin: 0 auto; padding: 32px 24px; display: grid; gap: 24px; }
+
+    /* ── Section titles ── */
+    .section-title { font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+    /* ── Cards ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-family: var(--display); font-weight: 700; font-size: 14px; color: #fff; }
+
+    /* ── Form elements ── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px; }
+    .form-grid.single { grid-template-columns: 1fr; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 600; }
+    input[type="text"], input[type="url"], input[type="password"], select {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+      color: var(--text); font-family: var(--mono); font-size: 12px; padding: 8px 12px;
+      outline: none; transition: border-color 0.15s; width: 100%;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+    select option { background: var(--surface); }
+
+    /* Toggle switch */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(35,38,53,0.5); }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { font-size: 12px; color: var(--text); }
+    .toggle-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .toggle {
+      position: relative; width: 36px; height: 20px; flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0; background: var(--border); border-radius: 20px;
+      cursor: pointer; transition: 0.2s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px;
+      background: var(--muted); border-radius: 50%; transition: 0.2s;
+    }
+    .toggle input:checked + .toggle-slider { background: rgba(108,142,255,0.3); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--accent); }
+    .toggles-block { padding: 4px 20px 12px; }
+
+    /* ── Buttons ── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: none; border-radius: 5px; font-family: var(--mono); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #7a9cff; }
+    .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+    .btn-danger { background: transparent; color: var(--accent2); border: 1px solid rgba(255,107,107,0.3); }
+    .btn-danger:hover { background: rgba(255,107,107,0.08); }
+    .btn-test { background: transparent; color: var(--accent); border: 1px solid rgba(108,142,255,0.3); padding: 7px 12px; font-size: 11px; }
+    .btn-test:hover { background: rgba(108,142,255,0.08); }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Test result ── */
+    .test-result { font-size: 11px; margin-top: 4px; min-height: 16px; }
+    .test-result.ok { color: var(--green); }
+    .test-result.error { color: var(--accent2); }
+
+    /* ── List entries ── */
+    .list-entry {
+      border: 1px solid var(--border); border-radius: 6px; margin: 0 20px 12px;
+      overflow: hidden; transition: border-color 0.15s;
+    }
+    .list-entry:last-child { margin-bottom: 0; }
+    .list-entry-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: rgba(0,0,0,0.2); cursor: pointer;
+      user-select: none;
+    }
+    .list-entry-header:hover { background: rgba(0,0,0,0.3); }
+    .list-entry-title { font-weight: 600; color: #fff; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+    .list-entry-body { padding: 16px 14px; display: none; border-top: 1px solid var(--border); }
+    .list-entry-body.open { display: block; }
+    .list-entry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .list-entry-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; }
+    .mini-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
+    .mini-toggle-label { font-size: 11px; color: var(--text-dim); }
+
+    /* ── Save bar ── */
+    .save-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 12px 32px; display: flex; align-items: center; justify-content: space-between;
+      transform: translateY(100%); transition: transform 0.2s;
+    }
+    .save-bar.visible { transform: translateY(0); }
+    .save-bar-msg { font-size: 12px; color: var(--yellow); display: flex; align-items: center; gap: 6px; }
+    .save-bar-actions { display: flex; gap: 8px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 80px; right: 24px; padding: 12px 20px;
+      background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+      border-radius: 6px; font-size: 12px; color: var(--text); opacity: 0;
+      transform: translateY(8px); transition: all 0.2s; z-index: 9999; pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.error { border-left-color: var(--accent2); }
+
+    .add-list-wrap { padding: 0 20px 16px; }
+    .divider { height: 1px; background: var(--border); margin: 4px 0 16px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/" class="logo"><div class="logo-icon">↑</div>Updat<span>arr</span></a>
+  <nav>
+    <a href="/" class="nav-link">Dashboard</a>
+    <a href="/queue" class="nav-link">Queue</a>
+    <a href="/settings" class="nav-link active">Settings</a>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ── Radarr ── -->
+  <div>
+    <div class="section-title">Radarr</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Connection</span>
+        <button class="btn btn-test" onclick="testRadarr()">Test Connection</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>URL</label>
+          <input type="text" id="radarr-url" placeholder="http://radarr:7878" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="password" id="radarr-api-key" placeholder="••••••••••••••••••••••••••••••••" oninput="markDirty()">
+        </div>
+        <div class="form-group full">
+          <div class="test-result" id="radarr-test-result"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Schedule ── -->
+  <div>
+    <div class="section-title">Schedule</div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Cron Expression</label>
+          <input type="text" id="schedule" placeholder="0 4 * * *  (daily at 4am)" oninput="markDirty()">
+        </div>
+        <div class="form-group" style="justify-content:flex-end;padding-top:18px">
+          <span style="font-size:11px;color:var(--text-dim)" id="schedule-hint">Leave empty to disable automatic sync</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MDBList ── -->
+  <div>
+    <div class="section-title">MDBList</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">API Connection</span>
+        <button class="btn btn-test" onclick="testMDBList()">Test API Key</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>API Key</label>
+          <input type="password" id="mdblist-api-key" placeholder="Leave empty to disable MDBList" oninput="markDirty()">
+        </div>
+        <div class="form-group full">
+          <div class="test-result" id="mdblist-test-result"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="card-header">
+        <span class="card-title">List Mappings</span>
+      </div>
+      <div style="padding-top:16px" id="lists-container"></div>
+      <div class="add-list-wrap">
+        <button class="btn btn-ghost" onclick="addList()">+ Add List</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Downgrade Settings ── -->
+  <div>
+    <div class="section-title">Downgrade Settings</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Global Library Downgrade</span>
+      </div>
+      <div class="toggles-block" style="padding-bottom:4px">
+        <div class="toggle-row">
+          <div><div class="toggle-label">Enabled</div><div class="toggle-desc">Downgrade movies older than the threshold to the target profile</div></div>
+          <label class="toggle"><input type="checkbox" id="dg-enabled" onchange="markDirty()"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="divider" style="margin:0 20px"></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Target Quality Profile</label>
+          <input type="text" id="dg-quality-profile" placeholder="e.g. HD-1080p" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Older Than (days)</label>
+          <input type="text" id="dg-older-than-days" placeholder="e.g. 730" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Grace Period (days)</label>
+          <input type="text" id="dg-grace-days" placeholder="7" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Date Source</label>
+          <select id="dg-date-source" onchange="markDirty()">
+            <option value="radarr">Radarr (date added to Radarr)</option>
+            <option value="plex">Plex (date added to Plex library)</option>
+          </select>
+        </div>
+      </div>
+      <div class="divider" style="margin:0 20px"></div>
+      <div class="toggles-block">
+        <div class="toggle-row">
+          <div><div class="toggle-label">Block Upgrades on Old Movies</div><div class="toggle-desc">Prevent sync sources from re-upgrading movies older than the threshold</div></div>
+          <label class="toggle"><input type="checkbox" id="dg-upgrade-threshold" onchange="markDirty()"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Plex ── -->
+  <div>
+    <div class="section-title">Plex Watchlist</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">RSS Feeds</span>
+        <button class="btn btn-test" onclick="testPlex()">Test Connection</button>
+      </div>
+      <div class="toggles-block" style="padding-bottom:4px">
+        <div class="toggle-row">
+          <div><div class="toggle-label">Enabled</div><div class="toggle-desc">Enable Plex watchlist sync</div></div>
+          <label class="toggle"><input type="checkbox" id="plex-enabled" onchange="markDirty()"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="divider" style="margin:0 20px"></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Local Plex URL</label>
+          <input type="text" id="plex-url" placeholder="http://plex:32400" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Plex Token <span style="color:var(--muted)">(Settings › Troubleshooting › Show Token)</span></label>
+          <input type="password" id="plex-token" placeholder="••••••••••••••••" oninput="markDirty()">
+        </div>
+        <div class="form-group full">
+          <div class="test-result" id="plex-test-result"></div>
+        </div>
+      </div>
+      <div id="plex-settings-block">
+        <div class="divider" style="margin:0 20px"></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Quality Profile</label>
+            <input type="text" id="plex-quality-profile" placeholder="e.g. Ultra-HD" oninput="markDirty()">
+          </div>
+          <div class="form-group">
+            <label>Root Folder <span style="color:var(--muted)">(add missing only)</span></label>
+            <input type="text" id="plex-root-folder" placeholder="/movies" oninput="markDirty()">
+          </div>
+          <div class="form-group">
+            <label>Minimum Availability</label>
+            <select id="plex-min-avail" onchange="markDirty()">
+              <option value="released">Released</option>
+              <option value="inCinemas">In Cinemas</option>
+              <option value="announced">Announced</option>
+            </select>
+          </div>
+        </div>
+        <div class="toggles-block">
+          <div class="toggle-row">
+            <div><div class="toggle-label">Sync Own Watchlist</div><div class="toggle-desc">Sync movies from your personal Plex watchlist</div></div>
+            <label class="toggle"><input type="checkbox" id="plex-sync-own" onchange="markDirty()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Sync Friends' Watchlist</div><div class="toggle-desc">Also sync movies from your Plex friends' watchlists</div></div>
+            <label class="toggle"><input type="checkbox" id="plex-sync-friends" onchange="markDirty()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Search on Update</div><div class="toggle-desc">Trigger search when profile is changed</div></div>
+            <label class="toggle"><input type="checkbox" id="plex-search-on-update" onchange="markDirty()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Add Missing</div><div class="toggle-desc">Add watchlist movies not in Radarr</div></div>
+            <label class="toggle"><input type="checkbox" id="plex-add-missing" onchange="markDirty()"><span class="toggle-slider"></span></label>
+          </div>
+          <div style="margin-left:16px;border-left:2px solid var(--border);padding-left:12px">
+            <div class="toggle-row">
+              <div><div class="toggle-label" style="color:var(--text-dim)">Search on Add</div><div class="toggle-desc">Trigger search when movie is added</div></div>
+              <label class="toggle"><input type="checkbox" id="plex-search-on-add" onchange="markDirty()"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div><div class="toggle-label" style="color:var(--text-dim)">Monitored</div><div class="toggle-desc">Monitor newly added movies</div></div>
+              <label class="toggle"><input type="checkbox" id="plex-monitored" onchange="markDirty()"><span class="toggle-slider"></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ── Ombi ── -->
+  <div>
+    <div class="section-title">Ombi</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Requests Integration</span>
+        <button class="btn btn-test" onclick="testOmbi()">Test Connection</button>
+      </div>
+      <div class="toggles-block" style="padding-bottom:4px">
+        <div class="toggle-row">
+          <div><div class="toggle-label">Enabled</div><div class="toggle-desc">Enable Ombi requests sync</div></div>
+          <label class="toggle"><input type="checkbox" id="ombi-enabled" onchange="markDirty()"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="divider" style="margin:0 20px"></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>URL</label>
+          <input type="text" id="ombi-url" placeholder="http://ombi:3579" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="password" id="ombi-api-key" placeholder="Settings > Configuration > API Key" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Quality Profile</label>
+          <input type="text" id="ombi-quality-profile" placeholder="e.g. Ultra-HD" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Root Folder <span style="color:var(--muted)">(add missing only)</span></label>
+          <input type="text" id="ombi-root-folder" placeholder="/movies" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Minimum Availability</label>
+          <select id="ombi-min-avail" onchange="markDirty()">
+            <option value="released">Released</option>
+            <option value="inCinemas">In Cinemas</option>
+            <option value="announced">Announced</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <div class="test-result" id="ombi-test-result"></div>
+        </div>
+      </div>
+      <div class="divider" style="margin:0 20px"></div>
+      <div class="toggles-block">
+        <div class="toggle-row">
+          <div><div class="toggle-label">Approved Only</div><div class="toggle-desc">Only sync admin-approved requests (recommended)</div></div>
+          <label class="toggle"><input type="checkbox" id="ombi-approved-only" onchange="markDirty()"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Search on Update</div><div class="toggle-desc">Trigger search when profile is changed</div></div>
+          <label class="toggle"><input type="checkbox" id="ombi-search-on-update" onchange="markDirty()"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Add Missing</div><div class="toggle-desc">Add requested movies not yet in Radarr</div></div>
+          <label class="toggle"><input type="checkbox" id="ombi-add-missing" onchange="markDirty()"><span class="toggle-slider"></span></label>
+        </div>
+        <div style="margin-left:16px;border-left:2px solid var(--border);padding-left:12px">
+          <div class="toggle-row">
+            <div><div class="toggle-label" style="color:var(--text-dim)">Search on Add</div><div class="toggle-desc">Trigger search when movie is added</div></div>
+            <label class="toggle"><input type="checkbox" id="ombi-search-on-add" onchange="markDirty()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label" style="color:var(--text-dim)">Monitored</div><div class="toggle-desc">Monitor newly added movies</div></div>
+            <label class="toggle"><input type="checkbox" id="ombi-monitored" onchange="markDirty()"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Save bar -->
+<div class="save-bar" id="save-bar">
+  <div class="save-bar-msg">⚠ You have unsaved changes</div>
+  <div class="save-bar-actions">
+    <button class="btn btn-ghost" onclick="discardChanges()">Discard</button>
+    <button class="btn btn-primary" onclick="saveConfig()">Save Changes</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let _dirty = false;
+let _listCount = 0;
+
+function markDirty() {
+  _dirty = true;
+  document.getElementById('save-bar').classList.add('visible');
+}
+
+function clearDirty() {
+  _dirty = false;
+  document.getElementById('save-bar').classList.remove('visible');
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = '', 3000);
+}
+
+// ── Load config into form ─────────────────────────────────────────────────────
+async function loadConfig() {
+  const res = await fetch('/api/config');
+  const cfg = await res.json();
+
+  // Radarr
+  document.getElementById('radarr-url').value = cfg.radarr?.url || '';
+  document.getElementById('radarr-api-key').value = cfg.radarr?.api_key || '';
+
+  // Schedule
+  document.getElementById('schedule').value = cfg.schedule || '';
+
+  // Downgrade
+  const dg = cfg.downgrade || {};
+  document.getElementById('dg-enabled').checked = !!dg.enabled;
+  document.getElementById('dg-quality-profile').value = dg.quality_profile || '';
+  document.getElementById('dg-older-than-days').value = dg.older_than_days ?? 730;
+  document.getElementById('dg-grace-days').value = dg.grace_days ?? 7;
+  document.getElementById('dg-date-source').value = dg.date_source || 'radarr';
+  document.getElementById('dg-upgrade-threshold').checked = dg.upgrade_threshold !== false;
+
+  // MDBList
+  document.getElementById('mdblist-api-key').value = cfg.mdblist?.api_key || '';
+
+  // Lists
+  document.getElementById('lists-container').innerHTML = '';
+  _listCount = 0;
+  (cfg.lists || []).forEach(l => addList(l));
+
+  // Plex
+  const p = cfg.plex || {};
+  document.getElementById('plex-url').value = p.url || '';
+  document.getElementById('plex-token').value = p.token || '';
+  document.getElementById('plex-sync-own').checked = p.sync_own !== false;
+  document.getElementById('plex-sync-friends').checked = !!p.sync_friends;
+  document.getElementById('plex-quality-profile').value = p.quality_profile || '';
+  document.getElementById('plex-root-folder').value = p.root_folder || '';
+  document.getElementById('plex-min-avail').value = p.minimum_availability || 'released';
+  document.getElementById('plex-enabled').checked = p.enabled !== false;
+  document.getElementById('plex-add-missing').checked = !!p.add_missing;
+  document.getElementById('plex-search-on-update').checked = !!p.search_on_update;
+  document.getElementById('plex-search-on-add').checked = !!p.search_on_add;
+  document.getElementById('plex-monitored').checked = p.monitored !== false;
+
+  // Ombi
+  const o = cfg.ombi || {};
+  document.getElementById('ombi-url').value = o.url || '';
+  document.getElementById('ombi-api-key').value = o.api_key || '';
+  document.getElementById('ombi-quality-profile').value = o.quality_profile || '';
+  document.getElementById('ombi-root-folder').value = o.root_folder || '';
+  document.getElementById('ombi-min-avail').value = o.minimum_availability || 'released';
+  document.getElementById('ombi-enabled').checked = o.enabled !== false;
+  document.getElementById('ombi-approved-only').checked = o.approved_only !== false;
+  document.getElementById('ombi-add-missing').checked = !!o.add_missing;
+  document.getElementById('ombi-search-on-update').checked = !!o.search_on_update;
+  document.getElementById('ombi-search-on-add').checked = !!o.search_on_add;
+  document.getElementById('ombi-monitored').checked = o.monitored !== false;
+
+  clearDirty();
+}
+
+// ── List entry management ─────────────────────────────────────────────────────
+function addList(data = {}) {
+  const id = _listCount++;
+  const container = document.getElementById('lists-container');
+  const name = data.list_name || data.list_id || `New List`;
+
+  const el = document.createElement('div');
+  el.className = 'list-entry';
+  el.id = `list-entry-${id}`;
+  el.innerHTML = `
+    <div class="list-entry-header" onclick="toggleListEntry(${id})">
+      <div class="list-entry-title">
+        <span class="list-entry-chevron" id="chevron-${id}">▶</span>
+        <span id="list-title-${id}">${name}</span>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); removeList(${id})">Remove</button>
+    </div>
+    <div class="list-entry-body" id="list-body-${id}">
+      <div class="list-entry-toggles" style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+        ${miniToggle(id, 'enabled', 'Enabled', data.enabled !== false)}
+      </div>
+      <div class="list-entry-grid">
+        <div class="form-group">
+          <label>List ID</label>
+          <input type="text" id="list-id-${id}" placeholder="123456" value="${data.list_id || ''}"
+            oninput="markDirty(); updateListTitle(${id})">
+        </div>
+        <div class="form-group">
+          <label>List Name <span style="color:var(--muted)">(optional)</span></label>
+          <input type="text" id="list-name-${id}" placeholder="My 4K List" value="${data.list_name || ''}"
+            oninput="markDirty(); updateListTitle(${id})">
+        </div>
+        <div class="form-group">
+          <label>Quality Profile</label>
+          <input type="text" id="list-profile-${id}" placeholder="e.g. Ultra-HD" value="${data.quality_profile || ''}"
+            oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Root Folder <span style="color:var(--muted)">(add missing only)</span></label>
+          <input type="text" id="list-root-${id}" placeholder="/movies" value="${data.root_folder || ''}"
+            oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Minimum Availability</label>
+          <select id="list-avail-${id}" onchange="markDirty()">
+            <option value="released" ${(data.minimum_availability||'released')==='released'?'selected':''}>Released</option>
+            <option value="inCinemas" ${data.minimum_availability==='inCinemas'?'selected':''}>In Cinemas</option>
+            <option value="announced" ${data.minimum_availability==='announced'?'selected':''}>Announced</option>
+          </select>
+        </div>
+      </div>
+      <div class="list-entry-toggles">
+        ${miniToggle(id, 'search-on-update', 'Search on Update',  !!data.search_on_update)}
+        ${miniToggle(id, 'add-missing',      'Add Missing',       !!data.add_missing)}
+      </div>
+      <div style="margin-left:12px;border-left:2px solid var(--border);padding-left:10px;margin-top:-4px;margin-bottom:4px">
+        <div class="list-entry-toggles">
+          ${miniToggle(id, 'search-on-add', 'Search on Add', !!data.search_on_add)}
+          ${miniToggle(id, 'monitored',     'Monitored',     data.monitored !== false)}
+        </div>
+      </div>
+    </div>
+  `;
+  container.appendChild(el);
+
+  // Auto-open new empty entries
+  if (!data.list_id) toggleListEntry(id);
+}
+
+function miniToggle(id, field, label, checked) {
+  return `<div class="mini-toggle-row">
+    <span class="mini-toggle-label">${label}</span>
+    <label class="toggle"><input type="checkbox" id="list-${field}-${id}" ${checked ? 'checked' : ''} onchange="markDirty()"><span class="toggle-slider"></span></label>
+  </div>`;
+}
+
+function toggleListEntry(id) {
+  const body = document.getElementById(`list-body-${id}`);
+  const chevron = document.getElementById(`chevron-${id}`);
+  const open = body.classList.toggle('open');
+  chevron.textContent = open ? '▼' : '▶';
+}
+
+function updateListTitle(id) {
+  const name = document.getElementById(`list-name-${id}`).value
+            || document.getElementById(`list-id-${id}`).value
+            || 'New List';
+  document.getElementById(`list-title-${id}`).textContent = name;
+}
+
+function removeList(id) {
+  document.getElementById(`list-entry-${id}`).remove();
+  markDirty();
+}
+
+// ── Build config object from form ─────────────────────────────────────────────
+function buildConfig() {
+  // Collect lists
+  const lists = [];
+  document.querySelectorAll('.list-entry').forEach(el => {
+    const id = el.id.replace('list-entry-', '');
+    const listId = document.getElementById(`list-id-${id}`)?.value?.trim();
+    if (!listId) return;
+    lists.push({
+      list_id:              listId,
+      list_name:            document.getElementById(`list-name-${id}`)?.value?.trim() || null,
+      quality_profile:      document.getElementById(`list-profile-${id}`)?.value?.trim() || '',
+      root_folder:          document.getElementById(`list-root-${id}`)?.value?.trim() || null,
+      minimum_availability: document.getElementById(`list-avail-${id}`)?.value || 'released',
+      enabled:              document.getElementById(`list-enabled-${id}`)?.checked ?? true,
+      add_missing:          document.getElementById(`list-add-missing-${id}`)?.checked ?? false,
+      search_on_update:     document.getElementById(`list-search-on-update-${id}`)?.checked ?? false,
+      search_on_add:        document.getElementById(`list-search-on-add-${id}`)?.checked ?? false,
+      monitored:            document.getElementById(`list-monitored-${id}`)?.checked ?? true,
+    });
+  });
+
+  const mdblistKey = document.getElementById('mdblist-api-key').value.trim();
+  const plexToken = document.getElementById('plex-token').value.trim();
+  const plexProfile = document.getElementById('plex-quality-profile').value.trim();
+
+  const cfg = {
+    radarr: {
+      url:     document.getElementById('radarr-url').value.trim(),
+      api_key: document.getElementById('radarr-api-key').value.trim(),
+    },
+    schedule: document.getElementById('schedule').value.trim() || null,
+    downgrade: {
+      enabled:           document.getElementById('dg-enabled').checked,
+      quality_profile:   document.getElementById('dg-quality-profile').value.trim(),
+      older_than_days:   parseInt(document.getElementById('dg-older-than-days').value) || 730,
+      grace_days:        parseInt(document.getElementById('dg-grace-days').value) || 7,
+      date_source:       document.getElementById('dg-date-source').value,
+      upgrade_threshold: document.getElementById('dg-upgrade-threshold').checked,
+    },
+    lists,
+  };
+
+  if (mdblistKey) cfg.mdblist = { api_key: mdblistKey };
+
+  if (plexToken) {
+    cfg.plex = {
+      url:                  document.getElementById('plex-url').value.trim() || null,
+      token:                document.getElementById('plex-token').value.trim() || null,
+      sync_own:             document.getElementById('plex-sync-own').checked,
+      sync_friends:         document.getElementById('plex-sync-friends').checked,
+      quality_profile:      plexProfile,
+      root_folder:          document.getElementById('plex-root-folder').value.trim() || null,
+      minimum_availability: document.getElementById('plex-min-avail').value,
+      enabled:              document.getElementById('plex-enabled').checked,
+      add_missing:          document.getElementById('plex-add-missing').checked,
+      search_on_update:     document.getElementById('plex-search-on-update').checked,
+      search_on_add:        document.getElementById('plex-search-on-add').checked,
+      monitored:            document.getElementById('plex-monitored').checked,
+    };
+  }
+
+  const ombiUrl = document.getElementById('ombi-url').value.trim();
+  const ombiKey = document.getElementById('ombi-api-key').value.trim();
+  if (ombiUrl && ombiKey) {
+    cfg.ombi = {
+      url:                  ombiUrl,
+      api_key:              ombiKey,
+      quality_profile:      document.getElementById('ombi-quality-profile').value.trim(),
+      root_folder:          document.getElementById('ombi-root-folder').value.trim() || null,
+      minimum_availability: document.getElementById('ombi-min-avail').value,
+      enabled:              document.getElementById('ombi-enabled').checked,
+      approved_only:        document.getElementById('ombi-approved-only').checked,
+      add_missing:          document.getElementById('ombi-add-missing').checked,
+      search_on_update:     document.getElementById('ombi-search-on-update').checked,
+      search_on_add:        document.getElementById('ombi-search-on-add').checked,
+      monitored:            document.getElementById('ombi-monitored').checked,
+    };
+  }
+
+  return cfg;
+}
+
+// ── Save ─────────────────────────────────────────────────────────────────────
+async function saveConfig() {
+  const cfg = buildConfig();
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      showToast('✓ Configuration saved');
+      clearDirty();
+    } else {
+      showToast('Error: ' + data.message, true);
+    }
+  } catch (e) {
+    showToast('Save failed: ' + e.message, true);
+  }
+}
+
+async function discardChanges() {
+  await loadConfig();
+  showToast('Changes discarded');
+}
+
+// ── Connection tests ──────────────────────────────────────────────────────────
+async function testRadarr() {
+  const el = document.getElementById('radarr-test-result');
+  el.textContent = 'Testing...'; el.className = 'test-result';
+  try {
+    const res = await fetch('/api/test/radarr', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: document.getElementById('radarr-url').value.trim(),
+        api_key: document.getElementById('radarr-api-key').value.trim(),
+      }),
+    });
+    const d = await res.json();
+    el.textContent = (d.status === 'ok' ? '✓ ' : '✗ ') + d.message;
+    el.className = 'test-result ' + (d.status === 'ok' ? 'ok' : 'error');
+  } catch(e) { el.textContent = '✗ ' + e.message; el.className = 'test-result error'; }
+}
+
+async function testMDBList() {
+  const el = document.getElementById('mdblist-test-result');
+  el.textContent = 'Testing...'; el.className = 'test-result';
+  try {
+    const res = await fetch('/api/test/mdblist', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: document.getElementById('mdblist-api-key').value.trim() }),
+    });
+    const d = await res.json();
+    el.textContent = (d.status === 'ok' ? '✓ ' : '✗ ') + d.message;
+    el.className = 'test-result ' + (d.status === 'ok' ? 'ok' : 'error');
+  } catch(e) { el.textContent = '✗ ' + e.message; el.className = 'test-result error'; }
+}
+
+async function testPlex() {
+  const el = document.getElementById('plex-test-result');
+  el.textContent = 'Testing...'; el.className = 'test-result';
+  const token = document.getElementById('plex-token').value.trim();
+  const url = document.getElementById('plex-url').value.trim();
+  try {
+    const res = await fetch('/api/test/plex', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, url }),
+    });
+    const d = await res.json();
+    if (d.status === 'ok' && d.rss_own) {
+      el.innerHTML = `<span style="color:var(--green)">✓ ${d.message}</span><br>
+        <span style="color:var(--text-dim);font-size:11px">Own: ${d.rss_own}</span><br>
+        <span style="color:var(--text-dim);font-size:11px">Friends: ${d.rss_friends}</span>`;
+      el.className = 'test-result ok';
+    } else {
+      el.textContent = (d.status === 'ok' ? '✓ ' : '✗ ') + d.message;
+      el.className = 'test-result ' + (d.status === 'ok' ? 'ok' : 'error');
+    }
+  } catch(e) { el.textContent = '✗ ' + e.message; el.className = 'test-result error'; }
+}
+
+async function testOmbi() {
+  const el = document.getElementById('ombi-test-result');
+  el.textContent = 'Testing...'; el.className = 'test-result';
+  try {
+    const res = await fetch('/api/test/ombi', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: document.getElementById('ombi-url').value.trim(),
+        api_key: document.getElementById('ombi-api-key').value.trim(),
+      }),
+    });
+    const d = await res.json();
+    el.textContent = (d.status === 'ok' ? '✓ ' : '✗ ') + d.message;
+    el.className = 'test-result ' + (d.status === 'ok' ? 'ok' : 'error');
+  } catch(e) { el.textContent = '✗ ' + e.message; el.className = 'test-result error'; }
+}
+
+
+window.addEventListener('beforeunload', e => {
+  if (_dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadConfig();
+</script>
+</body>
+</html>

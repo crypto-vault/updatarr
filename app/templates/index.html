@@ -410,11 +410,16 @@
 <body>
 
 <header>
-  <div class="logo">
+  <a href="/" class="logo" style="text-decoration:none">
     <div class="logo-icon">↑</div>
     Updat<span>arr</span>
-  </div>
+  </a>
   <div class="header-right">
+    <nav style="display:flex;gap:4px;margin-right:12px">
+      <a href="/" style="padding:6px 14px;border-radius:5px;font-size:12px;font-weight:600;color:var(--accent);background:rgba(108,142,255,0.1);text-decoration:none;font-family:var(--mono)">Dashboard</a>
+      <a href="/queue" style="padding:6px 14px;border-radius:5px;font-size:12px;font-weight:600;color:var(--text-dim);text-decoration:none;font-family:var(--mono)">Queue</a>
+      <a href="/settings" style="padding:6px 14px;border-radius:5px;font-size:12px;font-weight:600;color:var(--text-dim);text-decoration:none;font-family:var(--mono)">Settings</a>
+    </nav>
     <div class="status-pill" id="status-pill">
       <div class="dot" id="status-dot"></div>
       <span id="status-text">idle</span>
@@ -424,6 +429,8 @@
     </button>
   </div>
 </header>
+
+
 
 <main>
 
@@ -447,48 +454,73 @@
         <div class="stat-value" id="stat-errors">—</div>
         <div class="stat-label">Errors</div>
       </div>
-    </div>
-  </div>
-
-  <!-- Config -->
-  <div>
-    <div class="section-title">Configuration</div>
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Connection</span>
-        <span class="badge badge-profile">{{ config.lists | length }} list(s) configured</span>
+      <div class="stat-card" style="border-top-color:#a78bfa">
+        <div class="stat-value" id="stat-dq">—</div>
+        <div class="stat-label">Queued ↓</div>
       </div>
-      <div class="config-grid">
-        <div class="config-item">
-          <label>Radarr URL</label>
-          <div class="config-value">{{ config.radarr.url }}</div>
-        </div>
-        <div class="config-item">
-          <label>Radarr API Key</label>
-          <div class="config-value masked">••••••••••••••••</div>
-        </div>
-        <div class="config-item">
-          <label>MDBList API Key</label>
-          <div class="config-value masked">••••••••••••••••</div>
-        </div>
-        <div class="config-item">
-          <label>Schedule (Cron)</label>
-          <div class="config-value">{{ config.schedule or "disabled" }}</div>
-        </div>
+      <div class="stat-card" style="border-top-color:#f472b6">
+        <div class="stat-value" id="stat-de">—</div>
+        <div class="stat-label">Downgraded</div>
       </div>
     </div>
   </div>
 
-  <!-- Lists -->
+  <!-- Sources -->
   <div>
-    <div class="section-title">Active Lists</div>
+    <div class="section-title">Sync Sources</div>
+
+    {% if config.ombi and config.ombi.enabled %}
+    <div class="lists-grid" style="margin-bottom:8px">
+      <div class="list-row" style="border-color:rgba(251,191,36,0.25)">
+        <div>
+          <div class="list-name" style="display:flex;align-items:center;gap:8px">
+            <span style="color:var(--yellow)">▶</span> Ombi Requests
+          </div>
+          <div class="list-id">{{ config.ombi.url }} · {{ "approved only" if config.ombi.approved_only else "all non-denied" }}</div>
+        </div>
+        <span class="badge badge-profile">{{ config.ombi.quality_profile }}</span>
+        {% if config.ombi.add_missing %}
+          <span class="badge badge-add">+ Add Missing</span>
+        {% else %}
+          <span class="badge badge-noadd">Update Only</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if config.plex and config.plex.enabled %}
+    <div class="lists-grid" style="margin-bottom:8px">
+      <div class="list-row" style="border-color:rgba(74,222,128,0.25)">
+        <div>
+          <div class="list-name" style="display:flex;align-items:center;gap:8px">
+            <span style="color:var(--green)">▶</span> Plex Watchlist
+          </div>
+          <div class="list-id">token: ••••••••  ·  syncs all movies on your watchlist</div>
+        </div>
+        <span class="badge badge-profile">{{ config.plex.quality_profile }}</span>
+        {% if config.plex.add_missing %}
+          <span class="badge badge-add">+ Add Missing</span>
+        {% else %}
+          <span class="badge badge-noadd">Update Only</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     {% if config.lists %}
     <div class="lists-grid">
       {% for lst in config.lists %}
-      <div class="list-row">
+      <div class="list-row" style="{% if not lst.enabled %}opacity:0.4;{% endif %}">
         <div>
-          <div class="list-name">{{ lst.list_name or lst.list_id }}</div>
-          <div class="list-id">mdblist id: {{ lst.list_id }}</div>
+          <div class="list-name">
+            {% if lst.enabled %}
+              <span style="color:var(--green)">●</span>
+            {% else %}
+              <span style="color:var(--muted)">○</span>
+            {% endif %}
+            {{ lst.list_name or lst.list_id }}
+          </div>
+          <div class="list-id">mdblist id: {{ lst.list_id }}{% if not lst.enabled %} · disabled{% endif %}</div>
         </div>
         <span class="badge badge-profile">{{ lst.quality_profile }}</span>
         {% if lst.add_missing %}
@@ -499,11 +531,25 @@
       </div>
       {% endfor %}
     </div>
-    {% else %}
+    {% endif %}
+
+    {% if not config.lists and (not config.plex or not config.plex.enabled) and (not config.ombi or not config.ombi.enabled) %}
     <div class="card">
-      <div class="empty">No lists configured. Add lists to <code>updatarr.yml</code>.</div>
+      <div class="empty">No sync sources configured. Add MDBList lists, enable Plex watchlist, or configure Ombi in <code>updatarr.yml</code> or <a href="/settings" style="color:var(--accent)">Settings</a>.</div>
     </div>
     {% endif %}
+  </div>
+
+  <!-- Pending Downgrades strip -->
+  <div id="pending-downgrades-section" style="display:none;margin-bottom:28px">
+    <div class="section-title" style="margin-bottom:12px">Downgrade Queue</div>
+    <div style="display:flex;align-items:center;gap:12px;overflow:hidden">
+      <div id="queue-poster-strip" style="display:flex;gap:12px;flex:1;overflow:hidden;min-width:0"></div>
+      <a href="/queue" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:120px;height:180px;background:var(--surface);border:1px solid var(--border);border-radius:10px;text-decoration:none;color:var(--text-dim);font-size:11px;font-family:var(--mono);transition:border-color 0.15s,color 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">
+        <span style="font-size:24px">→</span>
+        <span id="queue-see-all-label" style="text-align:center;line-height:1.3;padding:0 8px">See all</span>
+      </a>
+    </div>
   </div>
 
   <!-- History -->
@@ -604,12 +650,13 @@
         const history = await res.json();
         if (history.length > 0) {
           updateHistoryTable(history);
-          updateStats(history);
         }
 
-        // Check if sync finished by re-fetching status
         const statusRes = await fetch('/api/status');
-        // If we get here, assume it completed after a delay
+        const statusData = await statusRes.json();
+        if (statusData.last_sync?.stats) {
+          updateStats(statusData.last_sync.stats);
+        }
       } catch(e) {}
     }, 2000);
 
@@ -656,20 +703,75 @@
     }
   }
 
-  function updateStats(history) {
-    const recent = history.slice(0, 200);
-    const counts = recent.reduce((acc, e) => {
-      acc[e.action] = (acc[e.action] || 0) + 1;
-      return acc;
-    }, {});
-    document.getElementById('stat-updated').textContent = counts.updated || 0;
-    document.getElementById('stat-added').textContent = counts.added || 0;
-    document.getElementById('stat-skipped').textContent = counts.skipped || 0;
-    document.getElementById('stat-errors').textContent = counts.error || 0;
+  function updateStats(stats) {
+    if (!stats) return;
+    document.getElementById('stat-updated').textContent = stats.updated ?? '—';
+    document.getElementById('stat-added').textContent   = stats.added   ?? '—';
+    document.getElementById('stat-skipped').textContent = stats.skipped ?? '—';
+    document.getElementById('stat-errors').textContent  = stats.errors  ?? '—';
+    document.getElementById('stat-dq').textContent      = stats.downgrade_queued   ?? '—';
+    document.getElementById('stat-de').textContent      = stats.downgrade_executed ?? '—';
   }
 
-  // Init stats from existing history
-  fetch('/api/history').then(r => r.json()).then(updateStats).catch(()=>{});
+  // Init stats from last sync
+  fetch('/api/status').then(r => r.json()).then(d => updateStats(d.last_sync?.stats)).catch(()=>{});
+
+  // Downgrade queue poster strip
+  async function loadPendingDowngrades() {
+    const res = await fetch('/api/pending-downgrades');
+    const items = await res.json();
+    const section = document.getElementById('pending-downgrades-section');
+    if (!items.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+
+    // Calculate how many 120px posters fit (120px card + 12px gap, minus 132px for the arrow card)
+    const stripWidth = document.getElementById('queue-poster-strip').parentElement.offsetWidth;
+    const arrowCardWidth = 132; // 120px + 12px gap
+    const cardWidth = 132; // 120px + 12px gap
+    const maxPosters = Math.max(1, Math.floor((stripWidth - arrowCardWidth) / cardWidth));
+    const total = items.length;
+    const preview = items.slice(0, maxPosters);
+    const remaining = total - preview.length;
+    document.getElementById('queue-see-all-label').textContent =
+      remaining > 0 ? `+${remaining} more` : `${total} total`;
+
+    const strip = document.getElementById('queue-poster-strip');
+    strip.innerHTML = preview.map(p => {
+      const days = Math.ceil((new Date(p.scheduled_for + 'Z') - Date.now()) / 86400000);
+      const urg = days <= 1 ? 'var(--accent2)' : days <= 3 ? 'var(--yellow)' : 'var(--purple)';
+      return `
+        <a href="/queue" title="${p.movie_title} — ${days <= 0 ? 'due now' : days + 'd left'}" style="flex-shrink:0;position:relative;width:120px;height:180px;border-radius:10px;overflow:hidden;border:1px solid var(--border);text-decoration:none;display:block;background:var(--surface)" id="strip-card-${p.id}">
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--muted)">🎬</div>
+          <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,0.92) 0%,transparent 100%);padding:28px 8px 8px;text-align:center">
+            <div style="font-family:var(--display);font-size:26px;font-weight:800;color:${urg};line-height:1">${days <= 0 ? '!' : days}</div>
+            <div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.5px;margin-top:2px">${days <= 0 ? 'due now' : 'days left'}</div>
+          </div>
+        </a>`;
+    }).join('');
+
+    // Load posters async
+    preview.forEach(async p => {
+      try {
+        const url = `/api/tmdb-poster/${p.tmdb_id}`;
+        const r = await fetch(url);
+        const ct = r.headers.get('content-type') || '';
+        if (r.ok && ct.startsWith('image/')) {
+          const card = document.getElementById(`strip-card-${p.id}`);
+          if (card) {
+            card.style.backgroundImage = `url(${url})`;
+            card.style.backgroundSize = 'cover';
+            card.style.backgroundPosition = 'center';
+            const placeholder = card.querySelector('div');
+            if (placeholder) placeholder.style.display = 'none';
+          }
+        }
+      } catch {}
+    });
+  }
+
+  loadPendingDowngrades();
+
+  // ── Connection status bar ─────────────────────────────────────────────────
 </script>
 
 </body>

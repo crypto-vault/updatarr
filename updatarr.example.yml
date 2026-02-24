@@ -1,33 +1,81 @@
 # updatarr.yml — Configuration file for Updatarr
-# Place this file at /config/updatarr.yml inside the container, or ./updatarr.yml for local dev.
+# Place this at /config/updatarr.yml inside the container, or ./updatarr.yml for local dev.
 
 radarr:
   url: http://radarr:7878         # Your Radarr URL
   api_key: YOUR_RADARR_API_KEY    # Settings > General > API Key
 
+# ── MDBList (optional) ────────────────────────────────────────────────────────
+# Remove or comment out the whole `mdblist` block to disable MDBList sync.
 mdblist:
   api_key: YOUR_MDBLIST_API_KEY   # mdblist.com > Account > API
 
-# Cron schedule for automatic sync (set to null or remove to disable)
-# Default: every day at 4am
-schedule: "0 4 * * *"
+# ── Plex Watchlist (optional) ─────────────────────────────────────────────────
+# Uses your Plex RSS watchlist feeds — find these in:
+#   Plex Web > Account Settings > Watchlist > RSS Feed
+# Two separate feeds are available: your own watchlist and a combined friends feed.
+# Leave either field empty (or remove it) to skip that feed.
+plex:
+  enabled: true
+  url: http://plex:32400        # Local Plex server URL
+  token: YOUR_PLEX_TOKEN        # Settings › Troubleshooting › Show Token
+  sync_own: true                # Sync your own watchlist
+  sync_friends: false           # Also sync friends' watchlists
+  quality_profile: "Ultra-HD"
+  add_missing: false
+  search_on_update: false   # If true, triggers a Radarr search when a movie's profile is updated
+  monitored: true
+  search_on_add: false
+  # root_folder: /movies
+  # minimum_availability: released
 
-# List mappings: for each list, define which Radarr quality profile to force
+# ── Ombi (optional) ───────────────────────────────────────────────────────────
+# Remove or comment out to disable. Syncs approved (or all non-denied) movie requests.
+# Find your API key in Ombi: Settings > Configuration > API Key
+ombi:
+  enabled: true
+  url: http://ombi:3579
+  api_key: YOUR_OMBI_API_KEY
+  quality_profile: "Ultra-HD"
+  approved_only: true           # Only sync admin-approved requests (recommended)
+  add_missing: false            # Add requested movies not yet in Radarr
+  search_on_update: false       # Trigger Radarr search when profile is updated
+  monitored: true
+  search_on_add: false
+  # root_folder: /movies
+  # minimum_availability: released
+
+# ── Downgrade (optional) ──────────────────────────────────────────────────────
+# Global library maintenance — downgrades movies older than a threshold to a
+# lower quality profile and deletes the existing file (moves to Radarr recycle
+# bin if configured). Independent of all sync sources.
+# downgrade:
+#   enabled: false
+#   quality_profile: "HD-1080p"   # target profile for old movies
+#   older_than_days: 730          # movies added more than this many days ago
+#   grace_days: 7                 # days to wait before actually deleting the file
+#   date_source: radarr           # "radarr" (added to Radarr) or "plex" (added to Plex)
+#   upgrade_threshold: true       # also block sync sources from re-upgrading old movies
+
+# Cron schedule for automatic sync (null to disable, manual only)
+schedule: "0 4 * * *"   # daily at 4am
+
+# ── MDBList list mappings ─────────────────────────────────────────────────────
+# Each list maps to a specific quality profile (independent of Plex config above).
 lists:
-
-  - list_id: "123456"                     # MDBList list ID (from the list URL)
-    list_name: "4K Must-Watch"            # Friendly name (optional, used in logs/UI)
-    quality_profile: "Ultra-HD"           # Must exactly match the profile name in Radarr
-    add_missing: false                    # If true, adds movies not already in Radarr
-    monitored: true                       # Monitored status when adding (add_missing only)
-    search_on_add: false                  # Trigger search when adding (add_missing only)
-    # root_folder: /movies                # Override root folder (add_missing only, defaults to first Radarr root)
-    # minimum_availability: released      # released | announced | inCinemas (add_missing only)
+  - list_id: "123456"
+    list_name: "4K Must-Watch"
+    quality_profile: "Ultra-HD"
+    enabled: true
+    add_missing: false
+    search_on_update: false   # If true, triggers a Radarr search when a movie's profile is updated
 
   - list_id: "654321"
     list_name: "HD Watchlist"
     quality_profile: "HD - 720p/1080p"
+    enabled: true
     add_missing: true
+    search_on_update: false
     monitored: true
     search_on_add: true
     root_folder: /movies
