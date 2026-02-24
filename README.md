@@ -20,6 +20,8 @@ Updatarr also works in reverse. The optional **global downgrade** feature identi
 
 The queue is fully visual — poster cards with countdown timers showing days until each downgrade executes. Movies can be excluded permanently (they'll never be re-queued on future syncs) or restored to the queue at any time. The exclusion list is managed from the same page.
 
+![Downgrade Queue](docs/queue-preview.png)
+
 ---
 
 ## Quick Start

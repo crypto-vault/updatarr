@@ -266,6 +266,7 @@ async def test_ombi(request: Request):
 
 
 
+@app.post("/api/test/plex")
 async def test_plex(request: Request):
     data = await request.json()
     token = data.get("token")
