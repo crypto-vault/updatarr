@@ -54,43 +54,94 @@ uvicorn app.main:app --reload --port 7777
 
 ## Configuration
 
-Edit `config/updatarr.yml` (inside the container volume):
+Updatarr has a built-in **Settings page** (accessible at `http://localhost:7777/settings`) where you can configure all sources, schedules, and downgrade rules through a UI — no need to edit any files directly. The `updatarr.yml` file is the underlying config store and is documented here for reference, but you should rarely need to touch it manually.
+
+The config file lives at `/config/updatarr.yml` inside the container (or `./updatarr.yml` for local dev). A full example with all options:
 
 ```yaml
 radarr:
-  url: http://radarr:7878
-  api_key: YOUR_RADARR_API_KEY
+  url: http://radarr:7878         # Your Radarr URL
+  api_key: YOUR_RADARR_API_KEY    # Settings > General > API Key
 
+# ── MDBList (optional) ────────────────────────────────────────────────────────
 mdblist:
-  api_key: YOUR_MDBLIST_API_KEY
+  api_key: YOUR_MDBLIST_API_KEY   # mdblist.com > Account > API
 
-schedule: "0 4 * * *"   # Daily at 4am, or null to disable
+# ── Plex Watchlist (optional) ─────────────────────────────────────────────────
+plex:
+  enabled: true
+  url: http://plex:32400          # Local Plex server URL
+  token: YOUR_PLEX_TOKEN          # Settings › Troubleshooting › Show Token
+  sync_own: true                  # Sync your own watchlist
+  sync_friends: false             # Also sync friends' watchlists
+  quality_profile: "Ultra-HD"
+  add_missing: false
+  search_on_update: false         # Trigger Radarr search when profile is updated
+  monitored: true
+  search_on_add: false
+  # root_folder: /movies
+  # minimum_availability: released
 
+# ── Ombi (optional) ───────────────────────────────────────────────────────────
+ombi:
+  enabled: true
+  url: http://ombi:3579
+  api_key: YOUR_OMBI_API_KEY      # Ombi: Settings > Configuration > API Key
+  quality_profile: "Ultra-HD"
+  approved_only: true             # Only sync admin-approved requests (recommended)
+  add_missing: false
+  search_on_update: false
+  monitored: true
+  search_on_add: false
+  # root_folder: /movies
+  # minimum_availability: released
+
+# ── Downgrade (optional) ──────────────────────────────────────────────────────
+# downgrade:
+#   enabled: false
+#   quality_profile: "HD-1080p"   # Target profile for downgraded movies
+#   older_than_days: 730          # Qualify movies added more than N days ago
+#   grace_days: 7                 # Days to wait before executing the downgrade
+#   date_source: plex             # "radarr" (date added to Radarr) or "plex" (date added to Plex)
+#   upgrade_threshold: true       # Prevent sync sources from re-upgrading old movies
+
+# Cron schedule for automatic sync (null to disable, manual only)
+schedule: "0 4 * * *"            # Daily at 4am
+
+# ── MDBList list mappings ─────────────────────────────────────────────────────
 lists:
   - list_id: "123456"
-    list_name: "4K Collection"
+    list_name: "4K Must-Watch"
     quality_profile: "Ultra-HD"
+    enabled: true
     add_missing: false
+    search_on_update: false
 
   - list_id: "654321"
     list_name: "HD Watchlist"
     quality_profile: "HD - 720p/1080p"
+    enabled: true
     add_missing: true
+    monitored: true
     search_on_add: true
+    search_on_update: false
     root_folder: /movies
+    minimum_availability: released
 ```
 
-### List options
+### MDBList list options
 
 | Option | Default | Description |
 |---|---|---|
 | `list_id` | required | MDBList list ID (from list URL) |
-| `list_name` | list_id | Friendly name for UI/logs |
+| `list_name` | list_id | Friendly name shown in UI and logs |
 | `quality_profile` | required | Exact Radarr quality profile name |
-| `add_missing` | `false` | Add movies not in Radarr |
-| `monitored` | `true` | Monitor when adding |
-| `search_on_add` | `false` | Trigger search when adding |
-| `root_folder` | first root | Root folder path for new movies |
+| `enabled` | `true` | Enable or disable this list without removing it |
+| `add_missing` | `false` | Add movies not yet in Radarr |
+| `monitored` | `true` | Monitor added movies |
+| `search_on_add` | `false` | Trigger search immediately when adding |
+| `search_on_update` | `false` | Trigger search when profile is updated |
+| `root_folder` | first root | Root folder path for newly added movies |
 | `minimum_availability` | `released` | `released` / `announced` / `inCinemas` |
 
 ---
@@ -100,7 +151,7 @@ lists:
 Go to your list on mdblist.com. The ID is in the URL:
 `https://mdblist.com/lists/username/my-list/` → the numeric ID is visible in the API URL.
 
-You can also use the MDBList API directly:
+You can also retrieve all your lists via the API:
 `https://mdblist.com/api/lists/mine?apikey=YOUR_KEY`
 
 ---
