@@ -271,12 +271,51 @@
             <option value="plex">Plex (date added to Plex library)</option>
           </select>
         </div>
+        <div class="form-group full">
+          <label>Downgrade Method</label>
+          <select id="dg-method" onchange="markDirty()">
+            <option value="redownload">Redownload — delete 4K file and re-grab at target profile</option>
+            <option value="tdarr">Tdarr — re-encode existing file in place (requires Tdarr section below)</option>
+          </select>
+        </div>
       </div>
       <div class="divider" style="margin:0 20px"></div>
       <div class="toggles-block">
         <div class="toggle-row">
           <div><div class="toggle-label">Block Upgrades on Old Movies</div><div class="toggle-desc">Prevent sync sources from re-upgrading movies older than the threshold</div></div>
           <label class="toggle"><input type="checkbox" id="dg-upgrade-threshold" onchange="markDirty()"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tdarr ── -->
+  <div>
+    <div class="section-title">Tdarr</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Re-encode Integration</span>
+        <button class="btn btn-test" onclick="testTdarr()">Test Connection</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>URL</label>
+          <input type="text" id="tdarr-url" placeholder="http://tdarr:8265" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Library ID</label>
+          <input type="text" id="tdarr-library-id" placeholder="GKkx3YT..." oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Path Replace From <span style="color:var(--muted)">(Plex prefix)</span></label>
+          <input type="text" id="tdarr-path-from" placeholder="/data/movies" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Path Replace To <span style="color:var(--muted)">(Tdarr prefix)</span></label>
+          <input type="text" id="tdarr-path-to" placeholder="/movies" oninput="markDirty()">
+        </div>
+        <div class="form-group full">
+          <div class="test-result" id="tdarr-test-result"></div>
         </div>
       </div>
     </div>
@@ -489,6 +528,14 @@ async function loadConfig() {
   document.getElementById('dg-grace-days').value = dg.grace_days ?? 7;
   document.getElementById('dg-date-source').value = dg.date_source || 'radarr';
   document.getElementById('dg-upgrade-threshold').checked = dg.upgrade_threshold !== false;
+  document.getElementById('dg-method').value = dg.method || 'redownload';
+
+  // Tdarr
+  const td = cfg.tdarr || {};
+  document.getElementById('tdarr-url').value = td.url || '';
+  document.getElementById('tdarr-library-id').value = td.library_id || '';
+  document.getElementById('tdarr-path-from').value = td.path_replace_from || '';
+  document.getElementById('tdarr-path-to').value = td.path_replace_to || '';
 
   // MDBList
   document.getElementById('mdblist-api-key').value = cfg.mdblist?.api_key || '';
@@ -664,9 +711,21 @@ function buildConfig() {
       grace_days:        parseInt(document.getElementById('dg-grace-days').value) || 7,
       date_source:       document.getElementById('dg-date-source').value,
       upgrade_threshold: document.getElementById('dg-upgrade-threshold').checked,
+      method:            document.getElementById('dg-method').value || 'redownload',
     },
     lists,
   };
+
+  const tdarrUrl = document.getElementById('tdarr-url').value.trim();
+  const tdarrLibrary = document.getElementById('tdarr-library-id').value.trim();
+  if (tdarrUrl && tdarrLibrary) {
+    cfg.tdarr = {
+      url:                tdarrUrl,
+      library_id:         tdarrLibrary,
+      path_replace_from:  document.getElementById('tdarr-path-from').value.trim() || null,
+      path_replace_to:    document.getElementById('tdarr-path-to').value.trim() || null,
+    };
+  }
 
   if (mdblistKey) cfg.mdblist = { api_key: mdblistKey };
 
@@ -786,6 +845,23 @@ async function testPlex() {
       el.textContent = (d.status === 'ok' ? '✓ ' : '✗ ') + d.message;
       el.className = 'test-result ' + (d.status === 'ok' ? 'ok' : 'error');
     }
+  } catch(e) { el.textContent = '✗ ' + e.message; el.className = 'test-result error'; }
+}
+
+async function testTdarr() {
+  const el = document.getElementById('tdarr-test-result');
+  el.textContent = 'Testing...'; el.className = 'test-result';
+  try {
+    const res = await fetch('/api/test/tdarr', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url:        document.getElementById('tdarr-url').value.trim(),
+        library_id: document.getElementById('tdarr-library-id').value.trim(),
+      }),
+    });
+    const d = await res.json();
+    el.textContent = (d.status === 'ok' ? '✓ ' : '✗ ') + d.message;
+    el.className = 'test-result ' + (d.status === 'ok' ? 'ok' : 'error');
   } catch(e) { el.textContent = '✗ ' + e.message; el.className = 'test-result error'; }
 }
 

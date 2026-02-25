@@ -22,6 +22,11 @@ The queue is fully visual — poster cards with countdown timers showing days un
 
 ![Downgrade Queue](docs/queue-preview.png)
 
+**Downgrade methods:**
+
+- **Redownload** (default) — deletes the existing file and triggers Radarr to search for a new copy at the target quality profile.
+- **Tdarr re-encode** — instead of deleting the file, submits it to a [Tdarr](https://home.tdarr.io/) library for in-place re-encoding. The file stays in your collection at all times; Tdarr transcodes it according to your configured flow (e.g. AV1 at a lower bitrate). Radarr's quality profile is updated to reflect the new target. Requires a Tdarr instance with a dedicated library configured for the downscale workflow.
+
 ---
 
 ## Quick Start
@@ -106,6 +111,14 @@ ombi:
 #   grace_days: 7                 # Days to wait before executing the downgrade
 #   date_source: plex             # "radarr" (date added to Radarr) or "plex" (date added to Plex)
 #   upgrade_threshold: true       # Prevent sync sources from re-upgrading old movies
+#   method: redownload            # "redownload" (default) or "tdarr"
+
+# ── Tdarr re-encode (optional, used when downgrade.method = "tdarr") ──────────
+# tdarr:
+#   url: http://tdarr:8265        # Tdarr server URL
+#   library_id: "CcX2K_hrh"      # Library ID from Tdarr (not the UI integer — see below)
+#   path_replace_from: /movies    # Radarr-side path prefix to replace (optional)
+#   path_replace_to: /mnt/media/downscale/movies  # Tdarr-side path prefix
 
 # Cron schedule for automatic sync (null to disable, manual only)
 schedule: "0 4 * * *"            # Daily at 4am
@@ -146,6 +159,19 @@ lists:
 | `root_folder` | first root | Root folder path for newly added movies |
 | `minimum_availability` | `released` | `released` / `announced` / `inCinemas` |
 
+### Tdarr re-encode options
+
+| Option | Default | Description |
+|---|---|---|
+| `url` | required | Tdarr server URL (e.g. `http://tdarr:8265`) |
+| `library_id` | required | Internal Tdarr library ID — **not** the integer shown in the UI. Use the Test Connection button in Settings to discover valid IDs. |
+| `path_replace_from` | — | Path prefix as Radarr sees it (e.g. `/movies`) |
+| `path_replace_to` | — | Equivalent path prefix as Tdarr sees it (e.g. `/mnt/media/downscale/movies`) |
+
+Path replacement is needed when Radarr and Tdarr mount the same files under different paths inside their containers. Both values have trailing slashes stripped automatically so either form works.
+
+The target Tdarr library must have **Process Library** enabled and a flow or plugin stack configured for downscaling. Folder watching does not need to be enabled — Updatarr submits files directly via the Tdarr API.
+
 ---
 
 ## How to find your MDBList list ID
@@ -174,3 +200,4 @@ You can also retrieve all your lists via the API:
 | `/api/sync` | POST | Trigger manual sync |
 | `/api/history` | GET | Sync history (JSON) |
 | `/api/status` | GET | App status + next scheduled run |
+| `/api/test/tdarr` | POST | Test Tdarr connection and verify library ID |

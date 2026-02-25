@@ -4,14 +4,17 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
+import io
+
 import httpx
 import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from PIL import Image
 from pydantic import BaseModel
 
 from .config import load_config, save_config
@@ -59,6 +62,7 @@ POSTER_DIR = Path("/config/posters") if Path("/config").exists() else Path("post
 POSTER_DIR.mkdir(parents=True, exist_ok=True)
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+app.mount("/posters", StaticFiles(directory=str(POSTER_DIR)), name="posters")
 
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
@@ -92,14 +96,15 @@ async def queue_page(request: Request):
 
 @app.get("/api/tmdb-poster/{tmdb_id}")
 async def tmdb_poster(tmdb_id: int):
-    """Serve poster from local cache. On miss: fetch image bytes via Radarr and save."""
+    """Ensure poster is cached locally, then redirect to the static /posters/ URL.
+    The browser caches the static file (ETag + 304) so subsequent loads are free."""
     poster_path = POSTER_DIR / f"{tmdb_id}.jpg"
 
-    # Cache hit — serve directly
+    # Cache hit — redirect straight to the static file (301 so browser caches the redirect too)
     if poster_path.exists():
-        return FileResponse(poster_path, media_type="image/jpeg")
+        return RedirectResponse(f"/posters/{tmdb_id}.jpg", status_code=301)
 
-    # Cache miss — ask Radarr for the remote URL, then fetch the image bytes
+    # Cache miss — ask Radarr for the remote URL, fetch and resize, then redirect
     try:
         config = load_config()
         async with httpx.AsyncClient(timeout=10, verify=False) as client:
@@ -123,11 +128,17 @@ async def tmdb_poster(tmdb_id: int):
             if not remote_url:
                 return JSONResponse({"poster_path": None})
 
-            # Step 2: fetch the actual image bytes
+            # Step 2: fetch, resize to max 500px wide, and save
             img_r = await client.get(remote_url, follow_redirects=True)
             if img_r.status_code == 200 and img_r.content:
-                poster_path.write_bytes(img_r.content)
-                return FileResponse(poster_path, media_type="image/jpeg")
+                try:
+                    img = Image.open(io.BytesIO(img_r.content))
+                    img.thumbnail((500, 1500), Image.LANCZOS)
+                    img = img.convert("RGB")
+                    img.save(poster_path, "JPEG", quality=85, optimize=True)
+                except Exception:
+                    poster_path.write_bytes(img_r.content)  # fallback: save raw
+                return RedirectResponse(f"/posters/{tmdb_id}.jpg", status_code=301)
 
     except Exception:
         pass
@@ -293,5 +304,19 @@ async def test_plex(request: Request):
             except Exception:
                 pass  # Local URL check is optional — don't block the response
         return JSONResponse({"status": "ok", "message": msg, "rss_own": rss["rss_own"], "rss_friends": rss["rss_friends"]})
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+
+
+@app.post("/api/test/tdarr")
+async def test_tdarr(request: Request):
+    data = await request.json()
+    try:
+        from .tdarr import TdarrClient
+        client = TdarrClient(data["url"], data["library_id"])
+        ok, msg = await client.validate()
+        if ok:
+            return JSONResponse({"status": "ok", "message": msg})
+        return JSONResponse({"status": "error", "message": msg}, status_code=400)
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=400)

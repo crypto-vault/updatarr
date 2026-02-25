@@ -62,6 +62,14 @@ class DowngradeConfig(BaseModel):
     grace_days: int = 7
     date_source: str = "radarr"       # "radarr" or "plex"
     upgrade_threshold: bool = True    # block upgrades on movies older than older_than_days
+    method: str = "redownload"        # "redownload" or "tdarr"
+
+
+class TdarrConfig(BaseModel):
+    url: str
+    library_id: str
+    path_replace_from: Optional[str] = None  # Plex path prefix to replace
+    path_replace_to: Optional[str] = None    # Tdarr path prefix to use instead
 
 
 class AppConfig(BaseModel):
@@ -70,6 +78,7 @@ class AppConfig(BaseModel):
     plex: Optional[PlexConfig] = None
     ombi: Optional[OmbiConfig] = None
     downgrade: Optional[DowngradeConfig] = None
+    tdarr: Optional[TdarrConfig] = None
     schedule: Optional[str] = "0 4 * * *"
     lists: list[ListMapping] = []
 
@@ -101,6 +110,9 @@ def save_config(data: dict) -> None:
     if data.get("ombi"):
         if not data["ombi"].get("url") or not data["ombi"].get("api_key"):
             data.pop("ombi", None)
+    if data.get("tdarr"):
+        if not data["tdarr"].get("url") or not data["tdarr"].get("library_id"):
+            data.pop("tdarr", None)
     if data.get("downgrade") and not data["downgrade"].get("enabled"):
         # Keep the block so settings are preserved, just leave enabled=false
         pass
