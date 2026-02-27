@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Updatarr — Downgrade Queue</title>
+  <title>Updatarr — Retirement Queue</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   <style>
@@ -204,7 +204,7 @@
 <main>
   <div class="page-header">
     <div>
-      <div class="page-title">Downgrade <span>Queue</span></div>
+      <div class="page-title">Retirement <span>Queue</span></div>
       <div class="queue-count" id="queue-count">Loading...</div>
     </div>
   </div>
@@ -227,7 +227,7 @@
 
   <div class="bulk-bar" id="bulk-bar">
     <span class="bulk-count" id="bulk-count">0 selected</span>
-    <button class="btn-cancel-selected" onclick="cancelSelected()">Exclude from downgrade queue</button>
+    <button class="btn-cancel-selected" onclick="cancelSelected()">Exclude from retirement queue</button>
   </div>
 
   <!-- Grid view -->
@@ -246,7 +246,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div>
         <div style="font-family:var(--display);font-size:18px;font-weight:800;color:var(--text)">Exclusions</div>
-        <div style="font-size:11px;color:var(--text-dim);margin-top:3px">Movies excluded from the downgrade queue — won't be re-queued on future syncs</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:3px">Movies excluded from the retirement queue — won't be re-queued on future syncs</div>
       </div>
     </div>
     <div id="exclusions-list"></div>
@@ -465,7 +465,7 @@ async function restoreMovie(id) {
 
 
 function countLabel(n) {
-  return n === 0 ? 'No movies queued' : `${n} movie${n === 1 ? '' : 's'} queued for downgrade`;
+  return n === 0 ? 'No movies queued' : `${n} movie${n === 1 ? '' : 's'} in retirement queue`;
 }
 
 function render() {
@@ -477,7 +477,7 @@ function render() {
   listEl.style.display = _view === 'list' ? 'block' : 'none';
 
   if (items.length === 0) {
-    const empty = `<div class="empty-state"><div class="empty-icon">✓</div><div class="empty-title">${_items.length === 0 ? 'Queue is empty' : 'No matches'}</div><div class="empty-sub">${_items.length === 0 ? 'No movies queued for downgrade. Run a sync to check your library.' : 'Try a different search term.'}</div></div>`;
+    const empty = `<div class="empty-state"><div class="empty-icon">✓</div><div class="empty-title">${_items.length === 0 ? 'Queue is empty' : 'No matches'}</div><div class="empty-sub">${_items.length === 0 ? 'No movies in the retirement queue. Run a sync to check your library.' : 'Try a different search term.'}</div></div>`;
     gridEl.innerHTML = empty;
     listEl.innerHTML = empty;
     return;

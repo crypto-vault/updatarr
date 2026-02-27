@@ -237,16 +237,16 @@
     </div>
   </div>
 
-  <!-- ── Downgrade Settings ── -->
+  <!-- ── Retirement Settings ── -->
   <div>
-    <div class="section-title">Downgrade Settings</div>
+    <div class="section-title">Retirement Settings</div>
     <div class="card">
       <div class="card-header">
-        <span class="card-title">Global Library Downgrade</span>
+        <span class="card-title">Retirement Queue</span>
       </div>
       <div class="toggles-block" style="padding-bottom:4px">
         <div class="toggle-row">
-          <div><div class="toggle-label">Enabled</div><div class="toggle-desc">Downgrade movies older than the threshold to the target profile</div></div>
+          <div><div class="toggle-label">Enabled</div><div class="toggle-desc">Retire movies older than the threshold — redownload, re-encode, or archive</div></div>
           <label class="toggle"><input type="checkbox" id="dg-enabled" onchange="markDirty()"><span class="toggle-slider"></span></label>
         </div>
       </div>
@@ -272,17 +272,18 @@
           </select>
         </div>
         <div class="form-group full">
-          <label>Downgrade Method</label>
+          <label>Retirement Method</label>
           <select id="dg-method" onchange="markDirty()">
             <option value="redownload">Redownload — delete 4K file and re-grab at target profile</option>
             <option value="tdarr">Tdarr — re-encode existing file in place (requires Tdarr section below)</option>
+            <option value="archive">Archive — move movie folder to archive directory (requires Archive section below)</option>
           </select>
         </div>
       </div>
       <div class="divider" style="margin:0 20px"></div>
       <div class="toggles-block">
         <div class="toggle-row">
-          <div><div class="toggle-label">Block Upgrades on Old Movies</div><div class="toggle-desc">Prevent sync sources from re-upgrading movies older than the threshold</div></div>
+          <div><div class="toggle-label">Block Upgrades on Retired Movies</div><div class="toggle-desc">Prevent sync sources from re-upgrading movies older than the threshold</div></div>
           <label class="toggle"><input type="checkbox" id="dg-upgrade-threshold" onchange="markDirty()"><span class="toggle-slider"></span></label>
         </div>
       </div>
@@ -316,6 +317,30 @@
         </div>
         <div class="form-group full">
           <div class="test-result" id="tdarr-test-result"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Archive ── -->
+  <div>
+    <div class="section-title">Archive</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Move to Archive</span>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Source Path <span style="color:var(--muted)">(Radarr movies path)</span></label>
+          <input type="text" id="archive-path-from" placeholder="/movies" oninput="markDirty()">
+        </div>
+        <div class="form-group">
+          <label>Local Path <span style="color:var(--muted)">(same folder as Updatarr sees it)</span></label>
+          <input type="text" id="archive-path-to" placeholder="/mnt/media/movies" oninput="markDirty()">
+        </div>
+        <div class="form-group full">
+          <label>Destination <span style="color:var(--muted)">(archive folder to move movies into)</span></label>
+          <input type="text" id="archive-path" placeholder="/archive/movies" oninput="markDirty()">
         </div>
       </div>
     </div>
@@ -537,6 +562,12 @@ async function loadConfig() {
   document.getElementById('tdarr-path-from').value = td.path_replace_from || '';
   document.getElementById('tdarr-path-to').value = td.path_replace_to || '';
 
+  // Archive
+  const ar = cfg.archive || {};
+  document.getElementById('archive-path').value = ar.path || '';
+  document.getElementById('archive-path-from').value = ar.path_replace_from || '';
+  document.getElementById('archive-path-to').value = ar.path_replace_to || '';
+
   // MDBList
   document.getElementById('mdblist-api-key').value = cfg.mdblist?.api_key || '';
 
@@ -724,6 +755,15 @@ function buildConfig() {
       library_id:         tdarrLibrary,
       path_replace_from:  document.getElementById('tdarr-path-from').value.trim() || null,
       path_replace_to:    document.getElementById('tdarr-path-to').value.trim() || null,
+    };
+  }
+
+  const archivePath = document.getElementById('archive-path').value.trim();
+  if (archivePath) {
+    cfg.archive = {
+      path:              archivePath,
+      path_replace_from: document.getElementById('archive-path-from').value.trim() || null,
+      path_replace_to:   document.getElementById('archive-path-to').value.trim() || null,
     };
   }
 

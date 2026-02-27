@@ -55,21 +55,27 @@ class OmbiConfig(BaseModel):
     enabled: bool = True
 
 
-class DowngradeConfig(BaseModel):
+class RetirementConfig(BaseModel):
     enabled: bool = False
     quality_profile: str = ""
     older_than_days: int = 730
     grace_days: int = 7
     date_source: str = "radarr"       # "radarr" or "plex"
     upgrade_threshold: bool = True    # block upgrades on movies older than older_than_days
-    method: str = "redownload"        # "redownload" or "tdarr"
+    method: str = "redownload"        # "redownload", "tdarr", or "archive"
 
 
 class TdarrConfig(BaseModel):
     url: str
     library_id: str
-    path_replace_from: Optional[str] = None  # Plex path prefix to replace
+    path_replace_from: Optional[str] = None  # Radarr path prefix to replace
     path_replace_to: Optional[str] = None    # Tdarr path prefix to use instead
+
+
+class ArchiveConfig(BaseModel):
+    path: str                                # Archive destination as Updatarr sees it
+    path_replace_from: Optional[str] = None  # Radarr-side path prefix to replace
+    path_replace_to: Optional[str] = None    # Updatarr-accessible source path prefix
 
 
 class AppConfig(BaseModel):
@@ -77,8 +83,9 @@ class AppConfig(BaseModel):
     mdblist: Optional[MDBListConfig] = None
     plex: Optional[PlexConfig] = None
     ombi: Optional[OmbiConfig] = None
-    downgrade: Optional[DowngradeConfig] = None
+    downgrade: Optional[RetirementConfig] = None
     tdarr: Optional[TdarrConfig] = None
+    archive: Optional[ArchiveConfig] = None
     schedule: Optional[str] = "0 4 * * *"
     lists: list[ListMapping] = []
 
@@ -113,6 +120,9 @@ def save_config(data: dict) -> None:
     if data.get("tdarr"):
         if not data["tdarr"].get("url") or not data["tdarr"].get("library_id"):
             data.pop("tdarr", None)
+    if data.get("archive"):
+        if not data["archive"].get("path"):
+            data.pop("archive", None)
     if data.get("downgrade") and not data["downgrade"].get("enabled"):
         # Keep the block so settings are preserved, just leave enabled=false
         pass

@@ -14,18 +14,19 @@ On a schedule (or triggered manually), Updatarr fetches movies from your configu
 - **Plex watchlist** — movies you (and optionally your friends) have added to their Plex watchlist are automatically upgraded when they land in your library.
 - **Ombi requests** — movies requested through Ombi are upgraded when they appear in Radarr, ensuring requested content is grabbed at the right quality.
 
-### Downgrade queue
+### Retirement queue
 
-Updatarr also works in reverse. The optional **global downgrade** feature identifies movies in your library that are currently stored in 4K (verified against your actual Plex library files, not just the Radarr profile) and have been in your collection long enough to no longer be a priority — based on how long ago they were added to Plex and a configurable age threshold. Qualifying movies are moved to a **downgrade queue** with a grace period before execution, giving you time to review and intervene.
+Updatarr also works in reverse. The optional **retirement queue** identifies movies in your library that are currently stored in 4K (verified against your actual Plex library files, not just the Radarr profile) and have been in your collection long enough to no longer be a priority — based on how long ago they were added to Plex and a configurable age threshold. Qualifying movies are moved to a **retirement queue** with a grace period before execution, giving you time to review and intervene.
 
-The queue is fully visual — poster cards with countdown timers showing days until each downgrade executes. Movies can be excluded permanently (they'll never be re-queued on future syncs) or restored to the queue at any time. The exclusion list is managed from the same page.
+The queue is fully visual — poster cards with countdown timers showing days until each retirement executes. Movies can be excluded permanently (they'll never be re-queued on future syncs) or restored to the queue at any time. The exclusion list is managed from the same page.
 
-![Downgrade Queue](docs/queue-preview.png)
+![Retirement Queue](docs/queue-preview.png)
 
-**Downgrade methods:**
+**Retirement methods:**
 
 - **Redownload** (default) — deletes the existing file and triggers Radarr to search for a new copy at the target quality profile.
 - **Tdarr re-encode** — instead of deleting the file, submits it to a [Tdarr](https://home.tdarr.io/) library for in-place re-encoding. The file stays in your collection at all times; Tdarr transcodes it according to your configured flow (e.g. AV1 at a lower bitrate). Radarr's quality profile is updated to reflect the new target. Requires a Tdarr instance with a dedicated library configured for the downscale workflow.
+- **Archive** — moves the entire movie folder (file + subtitles + any sidecar files) to a separate archive directory and unmonitors the movie in Radarr. No transcoding, no re-download — the file is preserved exactly as-is. Radarr stops tracking it, Bazarr stops looking for subtitles, and no further retirement logic applies. The archive directory can be added as its own Plex library so the movie remains watchable.
 
 ---
 
@@ -116,7 +117,7 @@ ombi:
 # ── Tdarr re-encode (optional, used when downgrade.method = "tdarr") ──────────
 # tdarr:
 #   url: http://tdarr:8265        # Tdarr server URL
-#   library_id: "CcX2K_hrh"      # Library ID from Tdarr (not the UI integer — see below)
+#   library_id: "aBcDeFgHi"      # Library ID from Tdarr (not the UI integer — see below)
 #   path_replace_from: /movies    # Radarr-side path prefix to replace (optional)
 #   path_replace_to: /mnt/media/downscale/movies  # Tdarr-side path prefix
 
@@ -144,11 +145,30 @@ lists:
     minimum_availability: released
 ```
 
-### MDBList list options
+---
+
+## Option reference
+
+### Radarr
 
 | Option | Default | Description |
 |---|---|---|
-| `list_id` | required | MDBList list ID (from list URL) |
+| `url` | required | Radarr server URL (e.g. `http://radarr:7878`) |
+| `api_key` | required | API key from Radarr › Settings › General |
+
+### MDBList
+
+| Option | Default | Description |
+|---|---|---|
+| `api_key` | required | API key from mdblist.com › Account › API |
+
+### MDBList list options
+
+Each entry under `lists:` supports:
+
+| Option | Default | Description |
+|---|---|---|
+| `list_id` | required | MDBList list ID (from list URL — see below) |
 | `list_name` | list_id | Friendly name shown in UI and logs |
 | `quality_profile` | required | Exact Radarr quality profile name |
 | `enabled` | `true` | Enable or disable this list without removing it |
@@ -159,18 +179,84 @@ lists:
 | `root_folder` | first root | Root folder path for newly added movies |
 | `minimum_availability` | `released` | `released` / `announced` / `inCinemas` |
 
-### Tdarr re-encode options
+### Plex Watchlist
+
+| Option | Default | Description |
+|---|---|---|
+| `enabled` | `false` | Enable Plex watchlist sync |
+| `url` | required | Local Plex server URL (e.g. `http://plex:32400`) |
+| `token` | required | Plex token from Settings › Troubleshooting › Show Token |
+| `sync_own` | `true` | Sync your own watchlist |
+| `sync_friends` | `false` | Also sync watchlists of Plex Home friends |
+| `quality_profile` | required | Exact Radarr quality profile name |
+| `add_missing` | `false` | Add watchlisted movies not yet in Radarr |
+| `monitored` | `true` | Monitor added movies |
+| `search_on_add` | `false` | Trigger search immediately when adding |
+| `search_on_update` | `false` | Trigger search when profile is updated |
+| `root_folder` | first root | Root folder path for newly added movies |
+| `minimum_availability` | `released` | `released` / `announced` / `inCinemas` |
+
+### Ombi
+
+| Option | Default | Description |
+|---|---|---|
+| `enabled` | `false` | Enable Ombi request sync |
+| `url` | required | Ombi server URL (e.g. `http://ombi:3579`) |
+| `api_key` | required | API key from Ombi › Settings › Configuration |
+| `quality_profile` | required | Exact Radarr quality profile name |
+| `approved_only` | `true` | Only sync admin-approved requests (recommended) |
+| `add_missing` | `false` | Add requested movies not yet in Radarr |
+| `monitored` | `true` | Monitor added movies |
+| `search_on_add` | `false` | Trigger search immediately when adding |
+| `search_on_update` | `false` | Trigger search when profile is updated |
+| `root_folder` | first root | Root folder path for newly added movies |
+| `minimum_availability` | `released` | `released` / `announced` / `inCinemas` |
+
+### Retirement queue
+
+| Option | Default | Description |
+|---|---|---|
+| `enabled` | `false` | Enable the retirement queue |
+| `quality_profile` | required | Target Radarr quality profile (used by `redownload` and `tdarr` methods) |
+| `older_than_days` | `730` | Only qualify movies added more than N days ago |
+| `grace_days` | `7` | Days to wait in queue before retirement executes |
+| `date_source` | `plex` | Age reference: `plex` (date added to Plex) or `radarr` (date added to Radarr) |
+| `upgrade_threshold` | `true` | Prevent sync sources from re-upgrading movies that are in or past the retirement threshold |
+| `method` | `redownload` | `redownload` — delete and re-grab at target profile; `tdarr` — submit to Tdarr for in-place re-encoding; `archive` — move folder to archive directory and unmonitor |
+
+### Tdarr re-encode
+
+Used when `downgrade.method` is set to `tdarr`.
 
 | Option | Default | Description |
 |---|---|---|
 | `url` | required | Tdarr server URL (e.g. `http://tdarr:8265`) |
-| `library_id` | required | Internal Tdarr library ID — **not** the integer shown in the UI. Use the Test Connection button in Settings to discover valid IDs. |
+| `library_id` | required | Internal Tdarr library ID — **not** the integer shown in the UI (see below) |
 | `path_replace_from` | — | Path prefix as Radarr sees it (e.g. `/movies`) |
 | `path_replace_to` | — | Equivalent path prefix as Tdarr sees it (e.g. `/mnt/media/downscale/movies`) |
 
 Path replacement is needed when Radarr and Tdarr mount the same files under different paths inside their containers. Both values have trailing slashes stripped automatically so either form works.
 
 The target Tdarr library must have **Process Library** enabled and a flow or plugin stack configured for downscaling. Folder watching does not need to be enabled — Updatarr submits files directly via the Tdarr API.
+
+### Archive
+
+Used when `downgrade.method` is set to `archive`.
+
+| Option | Default | Description |
+|---|---|---|
+| `path` | required | Archive destination directory as Updatarr sees it (e.g. `/archive/movies`) |
+| `path_replace_from` | — | Path prefix as Radarr sees it (e.g. `/movies`) |
+| `path_replace_to` | — | Equivalent path prefix as Updatarr sees it (e.g. `/mnt/media/movies`) |
+
+The entire movie folder is moved (not just the video file), preserving subtitles and any sidecar files. The movie is then unmonitored in Radarr so a missing-file scan won't trigger a re-download. If a folder with the same name already exists in the archive, a numeric suffix is appended (`_1`, `_2`, …).
+
+Updatarr must have filesystem read/write access to both the source movies directory and the archive directory. Add both as Docker volume mounts:
+```yaml
+volumes:
+  - /mnt/media/movies:/mnt/media/movies
+  - /mnt/media/archive:/archive/movies
+```
 
 ---
 
@@ -181,6 +267,17 @@ Go to your list on mdblist.com. The ID is in the URL:
 
 You can also retrieve all your lists via the API:
 `https://mdblist.com/api/lists/mine?apikey=YOUR_KEY`
+
+---
+
+## How to find your Tdarr library ID
+
+The library ID is the alphanumeric internal identifier Tdarr assigns to each library (e.g. `aBcDeFgHi`) — it is **not** the integer shown in the Tdarr UI sidebar.
+
+You can find it in the Tdarr UI URL when you navigate to a library:
+`http://tdarr:8265/libraries/aBcDeFgHi` → the ID is the last path segment.
+
+Alternatively, use the **Test Connection** button on the Updatarr Settings page under the Tdarr section — it connects to your Tdarr instance and lists all available library IDs along with their names, making it easy to copy the correct one.
 
 ---
 

@@ -1,7 +1,9 @@
 import logging
+import shutil
 from datetime import datetime, timedelta
+from pathlib import Path
 
-from .config import load_config, ListMapping, PlexConfig, OmbiConfig, DowngradeConfig
+from .config import load_config, ListMapping, PlexConfig, OmbiConfig, RetirementConfig
 from .radarr import RadarrClient
 from .mdblist import MDBListClient
 from .plex import PlexRSSClient, fetch_plex_rss_urls
@@ -28,7 +30,7 @@ async def run_sync():
 
     _sync_running = True
     stats = {"updated": 0, "added": 0, "skipped": 0, "errors": 0,
-             "downgrade_queued": 0, "downgrade_executed": 0}
+             "retirement_queued": 0, "retirement_executed": 0}
     logger.info("=== Updatarr sync started ===")
 
     try:
@@ -122,21 +124,21 @@ async def run_sync():
 
 # ── Global downgrade pass ─────────────────────────────────────────────────────
 
-async def _sync_downgrade(dg: DowngradeConfig, radarr: RadarrClient,
+async def _sync_downgrade(dg: RetirementConfig, radarr: RadarrClient,
                            profile_map: dict, profile_id_to_name: dict,
                            tmdb_to_movie: dict, plex_added_map: dict,
                            plex_4k_map: dict, stats: dict,
                            just_executed_ids: set[int] | None = None):
-    logger.info(f"[Downgrade] Scanning library for movies older than {dg.older_than_days}d → '{dg.quality_profile}'")
+    logger.info(f"[Retirement] Scanning library for movies older than {dg.older_than_days}d → '{dg.quality_profile}'")
 
     target_profile_id = profile_map.get(dg.quality_profile.lower())
     if not target_profile_id:
-        logger.error(f"  [Downgrade] Profile '{dg.quality_profile}' not found in Radarr — skipping downgrade pass")
+        logger.error(f"  [Retirement] Profile '{dg.quality_profile}' not found in Radarr — skipping retirement pass")
         return
 
     threshold = datetime.utcnow() - timedelta(days=dg.older_than_days)
-    logger.info(f"[Downgrade] Threshold: movies added before {threshold.date()} qualify ({dg.older_than_days}d)")
-    logger.info(f"[Downgrade] Date map: {len(plex_added_map)} Plex entries, {sum(v for v in plex_4k_map.values())} are 4K | Radarr library: {len(tmdb_to_movie)} movies")
+    logger.info(f"[Retirement] Threshold: movies added before {threshold.date()} qualify ({dg.older_than_days}d)")
+    logger.info(f"[Retirement] Date map: {len(plex_added_map)} Plex entries, {sum(v for v in plex_4k_map.values())} are 4K | Radarr library: {len(tmdb_to_movie)} movies")
 
     candidates = 0
     skip_not_4k = 0
@@ -198,21 +200,21 @@ async def _sync_downgrade(dg: DowngradeConfig, radarr: RadarrClient,
             plex_added_at=added.isoformat() if added else "",
         )
         if queued:
-            logger.info(f"  [Downgrade] QUEUED '{title}' (4K file, added {added.date()}) → '{dg.quality_profile}' in {dg.grace_days}d")
-            stats["downgrade_queued"] += 1
+            logger.info(f"  [Retirement] QUEUED '{title}' (4K file, added {added.date()}) → '{dg.quality_profile}' in {dg.grace_days}d")
+            stats["retirement_queued"] += 1
             await add_history_entry("downgrade", "Global Downgrade", title, tmdb_id,
                                     "downgrade_queued",
                                     f"4K file → '{dg.quality_profile}' (grace: {dg.grace_days}d)")
 
-    logger.info(f"[Downgrade] Scan complete — {candidates} candidate(s) found")
-    logger.info(f"[Downgrade] Skipped: {skip_not_4k} not 4K in Plex, {skip_no_file} no file, {skip_no_date} no date, {skip_too_new} too new")
+    logger.info(f"[Retirement] Scan complete — {candidates} candidate(s) found")
+    logger.info(f"[Retirement] Skipped: {skip_not_4k} not 4K in Plex, {skip_no_file} no file, {skip_no_date} no date, {skip_too_new} too new")
 
     # Cancel any pending entries whose movies no longer qualify (file deleted, removed from Plex, etc.)
     pending_entries = await get_pending_downgrades(status="pending")
     for entry in pending_entries:
         if entry.tmdb_id not in qualifying_tmdb_ids:
             await update_downgrade_status(entry.id, "cancelled")
-            logger.info(f"  [Downgrade] CANCELLED stale entry for '{entry.movie_title}' — no longer qualifies (file gone or removed from Plex)")
+            logger.info(f"  [Retirement] CANCELLED stale entry for '{entry.movie_title}' — no longer qualifies (file gone or removed from Plex)")
             await add_history_entry("downgrade", "Global Downgrade", entry.movie_title, entry.tmdb_id,
                                     "downgrade_cancelled",
                                     "No longer qualifies — file deleted or removed from Plex")
@@ -225,14 +227,14 @@ async def _build_plex_added_map(config) -> tuple[dict[int, datetime], dict[int, 
     Fetch local Plex library and build:
       - tmdb_id → addedAt (datetime)
       - tmdb_id → is_4k (bool)
-      - tmdb_id → file path (str)  ← used by the Tdarr downgrade method
+      - tmdb_id → file path (str)  ← used by the Tdarr retirement method
     Returns (date_map, is_4k_map, file_map). All empty dicts on failure.
     """
     plex_url = config.plex.url if config.plex else None
     plex_token = config.plex.token if config.plex else None
 
     if not plex_url or not plex_token:
-        logger.warning("[Downgrade] date_source=plex but plex.url or plex.token not set in config")
+        logger.warning("[Retirement] date_source=plex but plex.url or plex.token not set in config")
         return {}, {}, {}
 
     try:
@@ -281,16 +283,16 @@ async def _build_plex_added_map(config) -> tuple[dict[int, datetime], dict[int, 
                                 pass
 
         is_4k_count = sum(1 for v in is_4k_map.values() if v)
-        logger.info(f"[Downgrade] Plex map: {len(date_map)} movies, {is_4k_count} are 4K, {len(file_map)} with file paths")
+        logger.info(f"[Retirement] Plex map: {len(date_map)} movies, {is_4k_count} are 4K, {len(file_map)} with file paths")
         if date_map:
             sample = [(tmdb_id, date_map[tmdb_id], is_4k_map[tmdb_id]) for tmdb_id in list(date_map)[:3]]
             for tmdb_id, dt, is_4k in sample:
                 logger.info(f"  Sample — TMDB:{tmdb_id} added {dt.date()} 4K={is_4k}")
         else:
-            logger.warning("[Downgrade] Plex map is empty — check library has movies with TMDB GUIDs")
+            logger.warning("[Retirement] Plex map is empty — check library has movies with TMDB GUIDs")
         return date_map, is_4k_map, file_map
     except Exception as e:
-        logger.warning(f"[Downgrade] Failed to build Plex map: {e}")
+        logger.warning(f"[Retirement] Failed to build Plex map: {e}")
         return {}, {}, {}
 
 
@@ -330,36 +332,41 @@ async def _execute_due_downgrades(radarr: RadarrClient, profile_map: dict, stats
     due = await get_due_downgrades()
     if not due:
         return set()
-    logger.info(f"[Downgrade] {len(due)} downgrade(s) due for execution")
+    logger.info(f"[Retirement] {len(due)} retirement(s) due for execution")
     executed_ids: set[int] = set()
 
     method = "redownload"
     tdarr_cfg = None
+    archive_cfg = None
     if config and config.downgrade:
         method = getattr(config.downgrade, "method", "redownload") or "redownload"
     if config and config.tdarr:
         tdarr_cfg = config.tdarr
+    if config and config.archive:
+        archive_cfg = config.archive
+
+    movies = await radarr.get_movies()
+    tmdb_to_movie = {m["tmdbId"]: m for m in movies}
 
     for d in due:
         try:
-            movies = await radarr.get_movies()
-            movie = next((m for m in movies if m["tmdbId"] == d.tmdb_id), None)
+            movie = tmdb_to_movie.get(d.tmdb_id)
             if not movie:
-                logger.warning(f"  [Downgrade] '{d.movie_title}' not found in Radarr — cancelling")
+                logger.warning(f"  [Retirement] '{d.movie_title}' not found in Radarr — cancelling")
                 await update_downgrade_status(d.id, "cancelled")
                 continue
 
             target_id = profile_map.get(d.target_profile.lower())
             if target_id is None:
-                logger.error(f"  [Downgrade] Profile '{d.target_profile}' not found — cancelling")
+                logger.error(f"  [Retirement] Profile '{d.target_profile}' not found — cancelling")
                 await update_downgrade_status(d.id, "cancelled")
                 continue
 
-            movie["qualityProfileId"] = target_id
             has_file = bool(movie.get("movieFile"))
 
             if method == "tdarr" and tdarr_cfg:
                 # ── Tdarr method: re-encode in place, keep the file ──────────
+                movie["qualityProfileId"] = target_id
                 await radarr.update_movie(movie)
 
                 # Use Radarr's own file path — no need for Plex file map
@@ -374,14 +381,52 @@ async def _execute_due_downgrades(radarr: RadarrClient, profile_map: dict, stats
                 if tdarr_path and has_file:
                     tdarr_client = TdarrClient(tdarr_cfg.url, tdarr_cfg.library_id)
                     await tdarr_client.send_file(tdarr_path)
-                    logger.info(f"  [Downgrade] EXECUTED '{d.movie_title}' — sent to Tdarr for re-encode → '{d.target_profile}' (path: {tdarr_path})")
+                    logger.info(f"  [Retirement] EXECUTED '{d.movie_title}' — sent to Tdarr for re-encode → '{d.target_profile}' (path: {tdarr_path})")
                     note = f"'{d.current_profile}' → '{d.target_profile}' via Tdarr re-encode"
                 else:
-                    logger.warning(f"  [Downgrade] '{d.movie_title}' — Tdarr method but no file path found; profile updated only")
+                    logger.warning(f"  [Retirement] '{d.movie_title}' — Tdarr method but no file path found; profile updated only")
                     note = f"'{d.current_profile}' → '{d.target_profile}' (profile only, no Tdarr path)"
+
+            elif method == "archive" and archive_cfg:
+                # ── Archive method: move folder, unmonitor in Radarr ─────────
+                radarr_path = (movie.get("movieFile") or {}).get("path", "")
+                if not radarr_path:
+                    logger.warning(f"  [Retirement] '{d.movie_title}' — archive method but no file path in Radarr; skipping")
+                    await update_downgrade_status(d.id, "cancelled")
+                    continue
+
+                # Apply path replacement to get Updatarr-accessible source path
+                source_path = radarr_path
+                if archive_cfg.path_replace_from and archive_cfg.path_replace_to:
+                    _from = archive_cfg.path_replace_from.rstrip("/")
+                    _to = archive_cfg.path_replace_to.rstrip("/")
+                    source_path = radarr_path.replace(_from, _to, 1)
+
+                src_folder = Path(source_path).parent
+                folder_name = src_folder.name
+                dest_base = Path(archive_cfg.path.rstrip("/"))
+                dest_folder = dest_base / folder_name
+
+                # Handle name collision: append _1, _2, … until unique
+                if dest_folder.exists():
+                    counter = 1
+                    while (dest_base / f"{folder_name}_{counter}").exists():
+                        counter += 1
+                    dest_folder = dest_base / f"{folder_name}_{counter}"
+
+                # Move first — if this raises, Radarr is untouched (safe rollback)
+                shutil.move(str(src_folder), str(dest_folder))
+
+                # Unmonitor in Radarr so a missing-file scan won't trigger a re-grab
+                movie["monitored"] = False
+                await radarr.update_movie(movie)
+
+                logger.info(f"  [Retirement] EXECUTED '{d.movie_title}' — moved '{src_folder}' → '{dest_folder}', unmonitored in Radarr")
+                note = f"Archived '{src_folder.name}' → '{dest_folder}' (unmonitored)"
 
             else:
                 # ── Redownload method: delete file and re-grab ───────────────
+                movie["qualityProfileId"] = target_id
                 if has_file and d.radarr_file_id and d.radarr_file_id > 0:
                     await radarr.update_movie(movie)
                     await radarr.delete_movie_file(d.radarr_file_id)
@@ -390,7 +435,7 @@ async def _execute_due_downgrades(radarr: RadarrClient, profile_map: dict, stats
                     movie["monitored"] = True
                     await radarr.update_movie(movie)
                     await radarr.search_movie(movie["id"])
-                    logger.info(f"  [Downgrade] EXECUTED '{d.movie_title}' — file deleted, re-monitored, search triggered → '{d.target_profile}'")
+                    logger.info(f"  [Retirement] EXECUTED '{d.movie_title}' — file deleted, re-monitored, search triggered → '{d.target_profile}'")
                     note = f"'{d.current_profile}' → '{d.target_profile}' + file deleted"
                 else:
                     # File already gone (deleted externally or Plex removed it) —
@@ -398,16 +443,16 @@ async def _execute_due_downgrades(radarr: RadarrClient, profile_map: dict, stats
                     movie["monitored"] = True
                     await radarr.update_movie(movie)
                     await radarr.search_movie(movie["id"])
-                    logger.info(f"  [Downgrade] EXECUTED '{d.movie_title}' — no file on disk, re-monitored, search triggered → '{d.target_profile}'")
+                    logger.info(f"  [Retirement] EXECUTED '{d.movie_title}' — no file on disk, re-monitored, search triggered → '{d.target_profile}'")
                     note = f"'{d.current_profile}' → '{d.target_profile}' (no file, search triggered)"
 
             await update_downgrade_status(d.id, "executed")
             executed_ids.add(d.tmdb_id)
-            stats["downgrade_executed"] += 1
+            stats["retirement_executed"] += 1
             await add_history_entry(d.source_id, d.source_name, d.movie_title, d.tmdb_id,
                                     "downgraded", note)
         except Exception as e:
-            logger.error(f"  [Downgrade] Failed for '{d.movie_title}': {e}")
+            logger.error(f"  [Retirement] Failed for '{d.movie_title}': {e}")
             stats["errors"] += 1
 
     return executed_ids
@@ -559,7 +604,7 @@ async def _apply_profile(
 
             # Block upgrade if movie is old and upgrade_threshold is active
             if _is_upgrade_blocked(movie, tmdb_id, dg, plex_added_map):
-                logger.debug(f"  SKIP '{title}' — upgrade blocked by downgrade threshold")
+                logger.debug(f"  SKIP '{title}' — upgrade blocked by retirement threshold")
                 stats["skipped"] += 1
                 return
 

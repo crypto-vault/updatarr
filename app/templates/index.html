@@ -456,11 +456,11 @@
       </div>
       <div class="stat-card" style="border-top-color:#a78bfa">
         <div class="stat-value" id="stat-dq">—</div>
-        <div class="stat-label">Queued ↓</div>
+        <div class="stat-label">Retired (queued)</div>
       </div>
       <div class="stat-card" style="border-top-color:#f472b6">
         <div class="stat-value" id="stat-de">—</div>
-        <div class="stat-label">Downgraded</div>
+        <div class="stat-label">Retired</div>
       </div>
     </div>
   </div>
@@ -542,7 +542,7 @@
 
   <!-- Pending Downgrades strip -->
   <div id="pending-downgrades-section" style="display:none;margin-bottom:28px">
-    <div class="section-title" style="margin-bottom:12px">Downgrade Queue</div>
+    <div class="section-title" style="margin-bottom:12px">Retirement Queue</div>
     <div style="display:flex;align-items:center;gap:12px;overflow:hidden">
       <div id="queue-poster-strip" style="display:flex;gap:12px;flex:1;overflow:hidden;min-width:0"></div>
       <a href="/queue" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:120px;height:180px;background:var(--surface);border:1px solid var(--border);border-radius:10px;text-decoration:none;color:var(--text-dim);font-size:11px;font-family:var(--mono);transition:border-color 0.15s,color 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">
@@ -709,8 +709,8 @@
     document.getElementById('stat-added').textContent   = stats.added   ?? '—';
     document.getElementById('stat-skipped').textContent = stats.skipped ?? '—';
     document.getElementById('stat-errors').textContent  = stats.errors  ?? '—';
-    document.getElementById('stat-dq').textContent      = stats.downgrade_queued   ?? '—';
-    document.getElementById('stat-de').textContent      = stats.downgrade_executed ?? '—';
+    document.getElementById('stat-dq').textContent      = stats.retirement_queued   ?? '—';
+    document.getElementById('stat-de').textContent      = stats.retirement_executed ?? '—';
   }
 
   // Init stats from last sync

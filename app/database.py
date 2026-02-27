@@ -26,7 +26,7 @@ class HistoryEntry:
 
 
 @dataclass
-class PendingDowngrade:
+class PendingRetirement:
     id: int
     queued_at: str
     scheduled_for: str
@@ -132,12 +132,12 @@ async def queue_downgrade(source_id: str, source_name: str, movie_title: str,
     return True
 
 
-def _make_pending(row: dict) -> PendingDowngrade:
+def _make_pending(row: dict) -> PendingRetirement:
     row.setdefault("plex_added_at", "")
-    return PendingDowngrade(**row)
+    return PendingRetirement(**row)
 
 
-async def get_pending_downgrades(status: str = "pending") -> list[PendingDowngrade]:
+async def get_pending_downgrades(status: str = "pending") -> list[PendingRetirement]:
     async with aiosqlite.connect(get_db_path()) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
@@ -147,7 +147,7 @@ async def get_pending_downgrades(status: str = "pending") -> list[PendingDowngra
             return [_make_pending(dict(r)) for r in await cursor.fetchall()]
 
 
-async def get_exclusions() -> list[PendingDowngrade]:
+async def get_exclusions() -> list[PendingRetirement]:
     """Return all excluded movies (status='excluded'), newest first."""
     async with aiosqlite.connect(get_db_path()) as db:
         db.row_factory = aiosqlite.Row
@@ -157,7 +157,7 @@ async def get_exclusions() -> list[PendingDowngrade]:
             return [_make_pending(dict(r)) for r in await cursor.fetchall()]
 
 
-async def get_due_downgrades() -> list[PendingDowngrade]:
+async def get_due_downgrades() -> list[PendingRetirement]:
     """Return pending downgrades whose scheduled_for has passed."""
     now = datetime.utcnow().isoformat()
     async with aiosqlite.connect(get_db_path()) as db:

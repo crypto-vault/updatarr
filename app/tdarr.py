@@ -51,7 +51,7 @@ class TdarrClient:
                     return True, f"Connected — library '{match.get('name', self.library_id)}' found"
                 # Build helpful list of valid IDs
                 valid = [(lib.get("_id"), lib.get("name")) for lib in libraries if lib.get("_id")]
-                hint = ", ".join(f"{lid} ({name})" for lid, name in valid[:5])
+                hint = ", ".join(f"{lid} ({name})" for lid, name in valid)
                 return False, f"Library ID '{self.library_id}' not found. Valid IDs: {hint}"
         except Exception as e:
             return False, str(e)

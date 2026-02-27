@@ -46,16 +46,32 @@ ombi:
   # minimum_availability: released
 
 # ── Downgrade (optional) ──────────────────────────────────────────────────────
-# Global library maintenance — downgrades movies older than a threshold to a
-# lower quality profile and deletes the existing file (moves to Radarr recycle
-# bin if configured). Independent of all sync sources.
+# Global library maintenance — identifies movies older than a threshold and
+# processes them according to the configured method. Independent of all sync sources.
 # downgrade:
 #   enabled: false
-#   quality_profile: "HD-1080p"   # target profile for old movies
+#   quality_profile: "HD-1080p"   # target profile for old movies (used by redownload/tdarr)
 #   older_than_days: 730          # movies added more than this many days ago
-#   grace_days: 7                 # days to wait before actually deleting the file
+#   grace_days: 7                 # days to wait in queue before execution
 #   date_source: radarr           # "radarr" (added to Radarr) or "plex" (added to Plex)
 #   upgrade_threshold: true       # also block sync sources from re-upgrading old movies
+#   method: redownload            # "redownload", "tdarr", or "archive"
+
+# ── Tdarr re-encode (optional, used when downgrade.method = "tdarr") ──────────
+# tdarr:
+#   url: http://tdarr:8265        # Tdarr server URL
+#   library_id: "aBcDeFgHi"      # Library ID (see README — not the UI integer)
+#   path_replace_from: /movies    # Radarr-side path prefix to replace (optional)
+#   path_replace_to: /mnt/media/downscale/movies  # Tdarr-side path prefix
+
+# ── Archive (optional, used when downgrade.method = "archive") ────────────────
+# Moves the entire movie folder to an archive directory and unmonitors the movie
+# in Radarr. No transcoding. The archive folder can be added as a separate Plex
+# library. Updatarr must have filesystem read/write access to both paths.
+# archive:
+#   path: /archive/movies          # destination as Updatarr sees it
+#   path_replace_from: /movies     # Radarr-side path prefix (optional)
+#   path_replace_to: /mnt/media/movies  # Updatarr-accessible source path prefix
 
 # Cron schedule for automatic sync (null to disable, manual only)
 schedule: "0 4 * * *"   # daily at 4am
