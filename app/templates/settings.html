@@ -56,6 +56,16 @@
     .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
     .card-title { font-family: var(--display); font-weight: 700; font-size: 14px; color: #fff; }
 
+    /* ── Task schedule ── */
+    .task-schedule-list { display: flex; flex-direction: column; }
+    .task-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+    .task-row:last-child { border-bottom: none; }
+    .task-row-info { display: flex; flex-direction: column; gap: 3px; }
+    .task-row-name { font-size: 13px; font-weight: 600; color: #fff; }
+    .task-row-meta { font-size: 11px; color: var(--text-dim); }
+    .task-row-interval { display: flex; align-items: center; gap: 8px; }
+    .interval-input { width: 72px; text-align: center; padding: 6px 8px; }
+
     /* ── Form elements ── */
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px; }
     .form-grid.single { grid-template-columns: 1fr; }
@@ -153,6 +163,21 @@
 
     .add-list-wrap { padding: 0 20px 16px; }
     .divider { height: 1px; background: var(--border); margin: 4px 0 16px; }
+
+    /* ── Retirement stage cards ── */
+    .stage-card {
+      border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    }
+    .stage-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; background: rgba(0,0,0,0.2);
+    }
+    .stage-number { font-size: 11px; font-weight: 600; color: var(--accent); letter-spacing: 0.5px; text-transform: uppercase; }
+    .stage-fields {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px;
+    }
+    .stage-fields .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .stage-fields .form-group.full { grid-column: 1 / -1; }
   </style>
 </head>
 <body>
@@ -196,14 +221,11 @@
   <div>
     <div class="section-title">Schedule</div>
     <div class="card">
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Cron Expression</label>
-          <input type="text" id="schedule" placeholder="0 4 * * *  (daily at 4am)" oninput="markDirty()">
-        </div>
-        <div class="form-group" style="justify-content:flex-end;padding-top:18px">
-          <span style="font-size:11px;color:var(--text-dim)" id="schedule-hint">Leave empty to disable automatic sync</span>
-        </div>
+      <p style="color:var(--text-dim);font-size:12px;margin:0 0 16px">
+        Updatarr checks for due tasks every 5 minutes. Set each task's run interval independently.
+      </p>
+      <div class="task-schedule-list" id="task-schedule-list">
+        <!-- populated by loadTasks() -->
       </div>
     </div>
   </div>
@@ -246,24 +268,12 @@
       </div>
       <div class="toggles-block" style="padding-bottom:4px">
         <div class="toggle-row">
-          <div><div class="toggle-label">Enabled</div><div class="toggle-desc">Retire movies older than the threshold — redownload, re-encode, or archive</div></div>
+          <div><div class="toggle-label">Enabled</div><div class="toggle-desc">Process movies through retirement stages based on age</div></div>
           <label class="toggle"><input type="checkbox" id="dg-enabled" onchange="markDirty()"><span class="toggle-slider"></span></label>
         </div>
       </div>
       <div class="divider" style="margin:0 20px"></div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Target Quality Profile</label>
-          <input type="text" id="dg-quality-profile" placeholder="e.g. HD-1080p" oninput="markDirty()">
-        </div>
-        <div class="form-group">
-          <label>Older Than (days)</label>
-          <input type="text" id="dg-older-than-days" placeholder="e.g. 730" oninput="markDirty()">
-        </div>
-        <div class="form-group">
-          <label>Grace Period (days)</label>
-          <input type="text" id="dg-grace-days" placeholder="7" oninput="markDirty()">
-        </div>
+      <div class="form-grid" style="padding-bottom:12px">
         <div class="form-group">
           <label>Date Source</label>
           <select id="dg-date-source" onchange="markDirty()">
@@ -271,20 +281,28 @@
             <option value="plex">Plex (date added to Plex library)</option>
           </select>
         </div>
-        <div class="form-group full">
-          <label>Retirement Method</label>
-          <select id="dg-method" onchange="markDirty()">
-            <option value="redownload">Redownload — delete 4K file and re-grab at target profile</option>
-            <option value="tdarr">Tdarr — re-encode existing file in place (requires Tdarr section below)</option>
-            <option value="archive">Archive — move movie folder to archive directory (requires Archive section below)</option>
-          </select>
-        </div>
       </div>
       <div class="divider" style="margin:0 20px"></div>
       <div class="toggles-block">
         <div class="toggle-row">
-          <div><div class="toggle-label">Block Upgrades on Retired Movies</div><div class="toggle-desc">Prevent sync sources from re-upgrading movies older than the threshold</div></div>
+          <div><div class="toggle-label">Block Upgrades on Retired Movies</div><div class="toggle-desc">Prevent sync sources from re-upgrading movies older than the first stage threshold</div></div>
           <label class="toggle"><input type="checkbox" id="dg-upgrade-threshold" onchange="markDirty()"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage builder -->
+    <div style="margin-top:14px">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Retirement Stages</span>
+          <button class="btn btn-ghost btn-sm" onclick="addRetirementStage()">+ Add Stage</button>
+        </div>
+        <div id="retirement-stages" style="padding:12px 20px;display:flex;flex-direction:column;gap:10px;">
+          <p style="color:var(--text-dim);font-size:12px;text-align:center;padding:8px 0">No stages configured. Click <strong>+ Add Stage</strong> to begin.</p>
+        </div>
+        <div style="padding:0 20px 14px;font-size:11px;color:var(--text-dim)">
+          Stages are sorted by age threshold. Each stage action runs once per movie and is tracked independently.
         </div>
       </div>
     </div>
@@ -533,27 +551,72 @@ function showToast(msg, isError = false) {
   setTimeout(() => t.className = '', 3000);
 }
 
+// ── Task schedule ─────────────────────────────────────────────────────────────
+function _fmtRelTime(isoStr) {
+  if (!isoStr) return 'never';
+  const diff = Math.round((Date.now() - new Date(isoStr + 'Z').getTime()) / 1000);
+  if (diff < 60)   return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
+async function loadTasks() {
+  try {
+    const res = await fetch('/api/tasks');
+    const tasks = await res.json();
+    const container = document.getElementById('task-schedule-list');
+    container.innerHTML = tasks.map(t => `
+      <div class="task-row">
+        <div class="task-row-info">
+          <span class="task-row-name">${t.task_name}</span>
+          <span class="task-row-meta">Last run: <span id="task-last-${t.task_id}">${_fmtRelTime(t.last_run)}</span></span>
+        </div>
+        <div class="task-row-interval">
+          <span style="color:var(--text-dim);font-size:12px">every</span>
+          <input type="number" id="task-${t.task_id}" class="interval-input"
+                 value="${t.interval_minutes}" min="1" oninput="markDirty()">
+          <span style="color:var(--text-dim);font-size:12px">min</span>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('Failed to load tasks:', e);
+  }
+}
+
+async function saveTasks() {
+  const taskIds = ['plex_watchlist', 'lists', 'retirement'];
+  for (const taskId of taskIds) {
+    const el = document.getElementById(`task-${taskId}`);
+    if (!el) continue;
+    const interval = parseInt(el.value, 10);
+    if (!isNaN(interval) && interval >= 1) {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interval_minutes: interval }),
+      });
+    }
+  }
+}
+
 // ── Load config into form ─────────────────────────────────────────────────────
 async function loadConfig() {
   const res = await fetch('/api/config');
   const cfg = await res.json();
+  await loadTasks();
 
   // Radarr
   document.getElementById('radarr-url').value = cfg.radarr?.url || '';
   document.getElementById('radarr-api-key').value = cfg.radarr?.api_key || '';
 
-  // Schedule
-  document.getElementById('schedule').value = cfg.schedule || '';
-
-  // Downgrade
+  // Downgrade / Retirement
   const dg = cfg.downgrade || {};
   document.getElementById('dg-enabled').checked = !!dg.enabled;
-  document.getElementById('dg-quality-profile').value = dg.quality_profile || '';
-  document.getElementById('dg-older-than-days').value = dg.older_than_days ?? 730;
-  document.getElementById('dg-grace-days').value = dg.grace_days ?? 7;
   document.getElementById('dg-date-source').value = dg.date_source || 'radarr';
   document.getElementById('dg-upgrade-threshold').checked = dg.upgrade_threshold !== false;
-  document.getElementById('dg-method').value = dg.method || 'redownload';
+  renderRetirementStages(dg.stages || []);
 
   // Tdarr
   const td = cfg.tdarr || {};
@@ -703,6 +766,91 @@ function removeList(id) {
   markDirty();
 }
 
+// ── Retirement stage builder ───────────────────────────────────────────────────
+
+function renderRetirementStages(stages) {
+  const container = document.getElementById('retirement-stages');
+  container.innerHTML = '';
+  if (!stages || stages.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-dim);font-size:12px;text-align:center;padding:8px 0">No stages configured. Click <strong>+ Add Stage</strong> to begin.</p>';
+    return;
+  }
+  stages.forEach((s, i) => container.appendChild(makeStageCard(s, i)));
+}
+
+function makeStageCard(stage, index) {
+  const action = stage.action || 'redownload';
+  const div = document.createElement('div');
+  div.className = 'stage-card';
+  div.dataset.index = index;
+  div.innerHTML = `
+    <div class="stage-card-header">
+      <span class="stage-number">Stage ${index + 1}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeRetirementStage(${index})">Remove</button>
+    </div>
+    <div class="stage-fields">
+      <div class="form-group full">
+        <label>Action</label>
+        <select data-field="action" onchange="markDirty(); updateStageProfileVisibility(${index})">
+          <option value="redownload" ${action === 'redownload' ? 'selected' : ''}>Redownload — delete file and re-grab at target profile</option>
+          <option value="reencode"   ${action === 'reencode'   ? 'selected' : ''}>Reencode — re-encode existing file in place via Tdarr</option>
+          <option value="archive"    ${action === 'archive'    ? 'selected' : ''}>Archive — move folder to archive directory</option>
+          <option value="delete"     ${action === 'delete'     ? 'selected' : ''}>Delete — permanently remove from Plex, unmonitor in Radarr</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Older Than (days)</label>
+        <input type="text" data-field="older_than_days" value="${stage.older_than_days ?? 730}" placeholder="730" oninput="markDirty()">
+      </div>
+      <div class="form-group">
+        <label>Grace Period (days)</label>
+        <input type="text" data-field="grace_days" value="${stage.grace_days ?? 7}" placeholder="7" oninput="markDirty()">
+      </div>
+      <div class="form-group full stage-profile-field" style="display:${action === 'redownload' ? 'flex' : 'none'};flex-direction:column;gap:6px">
+        <label>Target Quality Profile</label>
+        <input type="text" data-field="quality_profile" value="${stage.quality_profile || ''}" placeholder="e.g. HD-1080p" oninput="markDirty()">
+      </div>
+    </div>
+  `;
+  return div;
+}
+
+function addRetirementStage() {
+  const stages = collectRetirementStages();
+  stages.push({ action: 'redownload', older_than_days: 730, grace_days: 7, quality_profile: '', enabled: true });
+  renderRetirementStages(stages);
+  markDirty();
+}
+
+function removeRetirementStage(index) {
+  const stages = collectRetirementStages();
+  stages.splice(index, 1);
+  renderRetirementStages(stages);
+  markDirty();
+}
+
+function updateStageProfileVisibility(index) {
+  const card = document.querySelector(`.stage-card[data-index="${index}"]`);
+  if (!card) return;
+  const action = card.querySelector('[data-field="action"]').value;
+  const field = card.querySelector('.stage-profile-field');
+  field.style.display = action === 'redownload' ? 'flex' : 'none';
+}
+
+function collectRetirementStages() {
+  const stages = [];
+  document.querySelectorAll('.stage-card').forEach(card => {
+    stages.push({
+      action:           card.querySelector('[data-field="action"]').value,
+      older_than_days:  parseInt(card.querySelector('[data-field="older_than_days"]').value) || 730,
+      grace_days:       parseInt(card.querySelector('[data-field="grace_days"]').value) || 7,
+      quality_profile:  card.querySelector('[data-field="quality_profile"]').value.trim(),
+      enabled:          true,
+    });
+  });
+  return stages;
+}
+
 // ── Build config object from form ─────────────────────────────────────────────
 function buildConfig() {
   // Collect lists
@@ -734,15 +882,11 @@ function buildConfig() {
       url:     document.getElementById('radarr-url').value.trim(),
       api_key: document.getElementById('radarr-api-key').value.trim(),
     },
-    schedule: document.getElementById('schedule').value.trim() || null,
     downgrade: {
       enabled:           document.getElementById('dg-enabled').checked,
-      quality_profile:   document.getElementById('dg-quality-profile').value.trim(),
-      older_than_days:   parseInt(document.getElementById('dg-older-than-days').value) || 730,
-      grace_days:        parseInt(document.getElementById('dg-grace-days').value) || 7,
       date_source:       document.getElementById('dg-date-source').value,
       upgrade_threshold: document.getElementById('dg-upgrade-threshold').checked,
-      method:            document.getElementById('dg-method').value || 'redownload',
+      stages:            collectRetirementStages(),
     },
     lists,
   };
@@ -818,6 +962,7 @@ async function saveConfig() {
     });
     const data = await res.json();
     if (data.status === 'ok') {
+      await saveTasks();
       showToast('✓ Configuration saved');
       clearDirty();
     } else {

@@ -117,7 +117,18 @@
     .poster-placeholder-icon { font-size: 28px; opacity: 0.25; }
     .poster-placeholder-title { font-size: 10px; color: var(--text-dim); text-align: center; padding: 0 10px; line-height: 1.4; }
 
-    .badge-4k { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.75); border: 1px solid rgba(167,139,250,0.5); color: var(--purple); font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 1px; backdrop-filter: blur(4px); }
+    .poster-badges { position: absolute; top: 8px; left: 8px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+    .badge-4k { background: rgba(0,0,0,0.75); border: 1px solid rgba(167,139,250,0.5); color: var(--purple); font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 1px; backdrop-filter: blur(4px); }
+    .badge-action { background: rgba(0,0,0,0.75); font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.3px; backdrop-filter: blur(4px); }
+    .badge-action.redownload { border: 1px solid rgba(108,142,255,0.5); color: var(--accent); }
+    .badge-action.reencode   { border: 1px solid rgba(251,191,36,0.5);  color: var(--yellow); }
+    .badge-action.archive    { border: 1px solid rgba(74,222,128,0.5);  color: var(--green); }
+    .badge-action.delete     { border: 1px solid rgba(255,107,107,0.5); color: var(--accent2); }
+    .action-pill { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .action-pill.redownload { background: rgba(108,142,255,0.1); color: var(--accent); }
+    .action-pill.reencode   { background: rgba(251,191,36,0.1);  color: var(--yellow); }
+    .action-pill.archive    { background: rgba(74,222,128,0.1);  color: var(--green); }
+    .action-pill.delete     { background: rgba(255,107,107,0.1); color: var(--accent2); }
 
     .countdown-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, transparent 100%); padding: 24px 10px 10px; display: flex; flex-direction: column; align-items: center; }
     .countdown-days { font-family: var(--display); font-size: 30px; font-weight: 800; line-height: 1; }
@@ -390,12 +401,13 @@ async function loadExclusions() {
     el.innerHTML = `
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">
         <table class="list-table">
-          <thead><tr><th>Movie</th><th>Profile</th><th>Added to Plex</th><th></th></tr></thead>
+          <thead><tr><th>Movie</th><th>Action</th><th>Profile</th><th>Added to Plex</th><th></th></tr></thead>
           <tbody>
             ${exclusions.map(e => `
             <tr>
               <td style="font-weight:600;color:var(--text)">${e.movie_title}</td>
-              <td><div class="profile-arrow" style="gap:5px"><span class="profile-from">${e.current_profile}</span><span style="color:var(--muted)">→</span><span class="profile-to">${e.target_profile}</span></div></td>
+              <td><span class="action-pill ${e.action}">${actionLabel(e.action)}</span></td>
+              <td><div class="profile-arrow" style="gap:5px">${profileArrow(e.current_profile, e.target_profile)}</div></td>
               <td class="ts">${e.plex_added_at ? fmtDate(e.plex_added_at) : '—'}</td>
               <td style="text-align:right"><button class="btn-row-cancel" style="color:var(--green);border-color:rgba(74,222,128,0.25)" onclick="restoreMovie(${e.id})">Move back to queue</button></td>
             </tr>`).join('')}
@@ -414,7 +426,10 @@ async function loadExclusions() {
           <div class="poster-placeholder-icon">🎬</div>
           <div class="poster-placeholder-title">${e.movie_title}</div>
         </div>
-        <div class="badge-4k">4K</div>
+        <div class="poster-badges">
+          <div class="badge-4k">4K</div>
+          <div class="badge-action ${e.action}">${actionLabel(e.action)}</div>
+        </div>
         <div class="countdown-overlay" style="padding:20px 10px 10px">
           <div style="font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,0.35);text-transform:uppercase">Excluded</div>
         </div>
@@ -424,7 +439,7 @@ async function loadExclusions() {
         <div class="card-meta">
           <div class="meta-row">
             <span class="meta-label">Profile</span>
-            <div class="profile-arrow"><span class="profile-from">${e.current_profile}</span><span style="color:var(--muted);margin:0 2px">→</span><span class="profile-to">${e.target_profile}</span></div>
+            <div class="profile-arrow">${profileArrow(e.current_profile, e.target_profile)}</div>
           </div>
           <div class="meta-row">
             <span class="meta-label">Added to Plex</span>
@@ -468,6 +483,15 @@ function countLabel(n) {
   return n === 0 ? 'No movies queued' : `${n} movie${n === 1 ? '' : 's'} in retirement queue`;
 }
 
+function actionLabel(action) {
+  return { redownload: 'Redownload', reencode: 'Reencode', archive: 'Archive', delete: 'Delete' }[action] || action;
+}
+
+function profileArrow(from, to) {
+  if (to) return `<span class="profile-from">${from}</span><span style="color:var(--muted);margin:0 2px">→</span><span class="profile-to">${to}</span>`;
+  return `<span class="profile-from">${from}</span>`;
+}
+
 function render() {
   const items = sorted(_items);
   const gridEl = document.getElementById('grid-view');
@@ -506,7 +530,10 @@ function renderGrid(items, el) {
           <div class="poster-placeholder-icon">🎬</div>
           <div class="poster-placeholder-title">${item.movie_title}</div>
         </div>
-        <div class="badge-4k">4K</div>
+        <div class="poster-badges">
+          <div class="badge-4k">4K</div>
+          <div class="badge-action ${item.action}">${actionLabel(item.action)}</div>
+        </div>
         <div class="countdown-overlay">
           <div class="countdown-days ${urg}">${days <= 0 ? '!' : days}</div>
           <div class="countdown-label">${daysLabel}</div>
@@ -518,7 +545,7 @@ function renderGrid(items, el) {
         <div class="card-meta">
           <div class="meta-row">
             <span class="meta-label">Profile</span>
-            <div class="profile-arrow"><span class="profile-from">${item.current_profile}</span><span style="color:var(--muted);margin:0 2px">→</span><span class="profile-to">${item.target_profile}</span></div>
+            <div class="profile-arrow">${profileArrow(item.current_profile, item.target_profile)}</div>
           </div>
           <div class="meta-row">
             <span class="meta-label">Added to Plex</span>
@@ -543,6 +570,7 @@ function renderList(items, el) {
         <tr>
           <th class="th-check"><input type="checkbox" class="row-checkbox" ${allSelected ? 'checked' : ''} onchange="toggleAll(this.checked)" title="Select all"></th>
           <th>Movie</th>
+          <th>Action</th>
           <th>Profile</th>
           <th>Added to Plex</th>
           <th>Executes</th>
@@ -561,7 +589,8 @@ function renderList(items, el) {
           <tr class="${sel ? 'selected' : ''}" onclick="toggleSelect(${item.id})" style="cursor:pointer">
             <td class="td-check" onclick="event.stopPropagation()"><input type="checkbox" class="row-checkbox" ${sel ? 'checked' : ''} onchange="toggleSelect(${item.id})"></td>
             <td style="font-weight:600;color:var(--text)">${item.movie_title}</td>
-            <td><div class="profile-arrow" style="gap:5px"><span class="profile-from">${item.current_profile}</span><span style="color:var(--muted)">→</span><span class="profile-to">${item.target_profile}</span></div></td>
+            <td><span class="action-pill ${item.action}">${actionLabel(item.action)}</span></td>
+            <td><div class="profile-arrow" style="gap:5px">${profileArrow(item.current_profile, item.target_profile)}</div></td>
             <td class="ts">${addedDate}</td>
             <td class="ts" style="color:var(--purple)">${fmtDate(item.scheduled_for)}</td>
             <td><span class="days-pill ${urg}">${daysLabel}</span></td>

@@ -1,7 +1,7 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class RadarrConfig(BaseModel):
@@ -55,14 +55,46 @@ class OmbiConfig(BaseModel):
     enabled: bool = True
 
 
-class RetirementConfig(BaseModel):
-    enabled: bool = False
-    quality_profile: str = ""
+class RetirementStage(BaseModel):
+    action: str = "redownload"   # "redownload" | "reencode" | "archive" | "delete"
     older_than_days: int = 730
     grace_days: int = 7
+    quality_profile: str = ""    # only used by "redownload" action
+    enabled: bool = True
+
+    @model_validator(mode="after")
+    def _migrate_tdarr_action(self) -> "RetirementStage":
+        """Rename legacy action value 'tdarr' → 'reencode'."""
+        if self.action == "tdarr":
+            self.action = "reencode"
+        return self
+
+
+class RetirementConfig(BaseModel):
+    enabled: bool = False
     date_source: str = "radarr"       # "radarr" or "plex"
-    upgrade_threshold: bool = True    # block upgrades on movies older than older_than_days
-    method: str = "redownload"        # "redownload", "tdarr", or "archive"
+    upgrade_threshold: bool = True    # block upgrades on movies older than threshold
+    stages: list[RetirementStage] = []
+
+    # ── Legacy flat fields (kept for YAML backward compat) ──────────────────
+    # Old configs used a single method/profile/days. Auto-migrated to stages[0].
+    quality_profile: Optional[str] = None
+    older_than_days: Optional[int] = None
+    grace_days: Optional[int] = None
+    method: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _migrate_legacy(self) -> "RetirementConfig":
+        """Silently migrate single-stage flat config to the stages list."""
+        if not self.stages and self.method:
+            method = "reencode" if self.method == "tdarr" else self.method
+            self.stages = [RetirementStage(
+                action=method,
+                older_than_days=self.older_than_days or 730,
+                grace_days=self.grace_days or 7,
+                quality_profile=self.quality_profile or "",
+            )]
+        return self
 
 
 class TdarrConfig(BaseModel):
@@ -126,6 +158,11 @@ def save_config(data: dict) -> None:
     if data.get("downgrade") and not data["downgrade"].get("enabled"):
         # Keep the block so settings are preserved, just leave enabled=false
         pass
+
+    # Strip legacy flat fields from downgrade block — they've been migrated to stages
+    if data.get("downgrade"):
+        for legacy_key in ("quality_profile", "older_than_days", "grace_days", "method"):
+            data["downgrade"].pop(legacy_key, None)
 
     def clean(obj):
         if isinstance(obj, dict):

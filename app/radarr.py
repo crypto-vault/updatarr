@@ -90,6 +90,16 @@ class RadarrClient:
             )
             r.raise_for_status()
 
+    async def delete_movie(self, movie_id: int, delete_files: bool = False) -> None:
+        """Remove a movie from Radarr. Optionally delete the files from disk."""
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.delete(
+                self._url(f"/movie/{movie_id}"),
+                headers=self.headers,
+                params={"deleteFiles": str(delete_files).lower()},
+            )
+            r.raise_for_status()
+
     async def get_media_management(self) -> dict:
         """Get Radarr media management settings (includes recycleBin path)."""
         async with httpx.AsyncClient(timeout=30) as client:

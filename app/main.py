@@ -19,7 +19,8 @@ from pydantic import BaseModel
 
 from .config import load_config, save_config
 from .database import init_db, get_history, get_pending_downgrades, \
-    get_exclusions, exclude_downgrade, restore_downgrade, update_downgrade_status
+    get_exclusions, exclude_downgrade, restore_downgrade, update_downgrade_status, \
+    get_task_schedules, is_task_due, set_task_interval
 from .sync import run_sync
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -28,26 +29,36 @@ logger = logging.getLogger("updatarr")
 scheduler = AsyncIOScheduler()
 
 
-def _reschedule(cron: str | None):
-    scheduler.remove_job("sync_job") if scheduler.get_job("sync_job") else None
-    if cron:
-        scheduler.add_job(
-            run_sync,
-            CronTrigger.from_crontab(cron),
-            id="sync_job",
-            replace_existing=True,
-        )
-        logger.info(f"Rescheduled sync: {cron}")
+async def _run_due_tasks():
+    """Called by the master scheduler every 15 minutes. Runs only tasks that are due."""
+    due: set[str] = set()
+    for task_id in ("plex_watchlist", "lists", "retirement"):
+        if await is_task_due(task_id):
+            due.add(task_id)
+    if not due:
+        logger.debug("[Scheduler] No tasks due this tick")
+        return
+    logger.info(f"[Scheduler] Due tasks: {sorted(due)}")
+    await run_sync(tasks=due)
+
+
+def _reschedule():
+    """Set the master scheduler to check for due tasks every 15 minutes."""
+    if scheduler.get_job("sync_job"):
+        scheduler.remove_job("sync_job")
+    scheduler.add_job(
+        _run_due_tasks,
+        CronTrigger.from_crontab("*/5 * * * *"),
+        id="sync_job",
+        replace_existing=True,
+    )
+    logger.info("Scheduler: checking for due tasks every 5 minutes")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    try:
-        config = load_config()
-        _reschedule(config.schedule)
-    except Exception as e:
-        logger.warning(f"Could not load config on startup: {e}")
+    _reschedule()
     scheduler.start()
     yield
     scheduler.shutdown()
@@ -154,6 +165,44 @@ async def trigger_sync():
     return JSONResponse({"status": "started", "message": "Sync triggered"})
 
 
+@app.get("/api/tasks")
+async def api_get_tasks():
+    """Return all task schedules with computed next-run times."""
+    tasks = await get_task_schedules()
+    now = datetime.utcnow()
+    result = []
+    for t in tasks:
+        if t.last_run:
+            from datetime import timedelta
+            last_dt = datetime.fromisoformat(t.last_run)
+            next_dt = last_dt + timedelta(minutes=t.interval_minutes)
+            overdue = now >= next_dt
+        else:
+            next_dt = None
+            overdue = True
+        result.append({
+            "task_id": t.task_id,
+            "task_name": t.task_name,
+            "interval_minutes": t.interval_minutes,
+            "last_run": t.last_run,
+            "next_run": next_dt.isoformat() if next_dt else None,
+            "enabled": t.enabled,
+            "overdue": overdue,
+        })
+    return JSONResponse(result)
+
+
+@app.post("/api/tasks/{task_id}")
+async def api_update_task(task_id: str, request: Request):
+    """Update a task's interval (in minutes)."""
+    data = await request.json()
+    interval = int(data.get("interval_minutes", 0))
+    if interval < 1:
+        return JSONResponse({"status": "error", "message": "interval_minutes must be >= 1"}, status_code=400)
+    await set_task_interval(task_id, interval)
+    return JSONResponse({"status": "ok"})
+
+
 @app.get("/api/history")
 async def api_history():
     history = await get_history(limit=100)
@@ -168,8 +217,7 @@ async def api_status():
     return JSONResponse({
         "radarr_url": config.radarr.url,
         "lists_count": len(config.lists),
-        "schedule": config.schedule,
-        "next_run": str(scheduler.get_job("sync_job").next_run_time) if scheduler.get_job("sync_job") else None,
+        "next_scheduler_tick": str(scheduler.get_job("sync_job").next_run_time) if scheduler.get_job("sync_job") else None,
         "sync_running": sync["running"],
         "last_sync": sync["last"],
     })
@@ -191,8 +239,6 @@ async def api_save_config(request: Request):
         from .config import AppConfig
         AppConfig(**data)
         save_config(data)
-        # Reschedule if cron changed
-        _reschedule(data.get("schedule"))
         return JSONResponse({"status": "ok", "message": "Configuration saved"})
     except Exception as e:
         logger.error(f"Config save failed: {e}", exc_info=True)
