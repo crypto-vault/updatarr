@@ -11,10 +11,6 @@ mdblist:
   api_key: YOUR_MDBLIST_API_KEY   # mdblist.com > Account > API
 
 # ── Plex Watchlist (optional) ─────────────────────────────────────────────────
-# Uses your Plex RSS watchlist feeds — find these in:
-#   Plex Web > Account Settings > Watchlist > RSS Feed
-# Two separate feeds are available: your own watchlist and a combined friends feed.
-# Leave either field empty (or remove it) to skip that feed.
 plex:
   enabled: true
   url: http://plex:32400        # Local Plex server URL
@@ -23,7 +19,7 @@ plex:
   sync_friends: false           # Also sync friends' watchlists
   quality_profile: "Ultra-HD"
   add_missing: false
-  search_on_update: false   # If true, triggers a Radarr search when a movie's profile is updated
+  search_on_update: false       # Trigger Radarr search when a movie's profile is updated
   monitored: true
   search_on_add: false
   # root_folder: /movies
@@ -31,60 +27,79 @@ plex:
 
 # ── Ombi (optional) ───────────────────────────────────────────────────────────
 # Remove or comment out to disable. Syncs approved (or all non-denied) movie requests.
-# Find your API key in Ombi: Settings > Configuration > API Key
 ombi:
   enabled: true
   url: http://ombi:3579
-  api_key: YOUR_OMBI_API_KEY
+  api_key: YOUR_OMBI_API_KEY    # Ombi: Settings > Configuration > API Key
   quality_profile: "Ultra-HD"
   approved_only: true           # Only sync admin-approved requests (recommended)
-  add_missing: false            # Add requested movies not yet in Radarr
-  search_on_update: false       # Trigger Radarr search when profile is updated
+  add_missing: false
+  search_on_update: false
   monitored: true
   search_on_add: false
   # root_folder: /movies
   # minimum_availability: released
 
-# ── Downgrade (optional) ──────────────────────────────────────────────────────
-# Global library maintenance — identifies movies older than a threshold and
-# processes them according to the configured method. Independent of all sync sources.
+# ── Retirement queue (optional) ───────────────────────────────────────────────
+# Processes old movies through an ordered pipeline of stages. Each stage has its
+# own age threshold and action. Configure as many or as few stages as you like.
+#
+# Example pipeline: redownload 4K → 1080p after 2 years, archive after 4 years,
+#                   permanently delete after 10 years.
+#
 # downgrade:
 #   enabled: false
-#   quality_profile: "HD-1080p"   # target profile for old movies (used by redownload/tdarr)
-#   older_than_days: 730          # movies added more than this many days ago
-#   grace_days: 7                 # days to wait in queue before execution
-#   date_source: radarr           # "radarr" (added to Radarr) or "plex" (added to Plex)
-#   upgrade_threshold: true       # also block sync sources from re-upgrading old movies
-#   method: redownload            # "redownload", "tdarr", or "archive"
+#   date_source: plex             # "plex" (added to Plex) or "radarr" (added to Radarr)
+#   upgrade_threshold: true       # Block sync sources from re-upgrading retired movies
+#   stages:
+#     - action: redownload        # Delete file and re-grab at target quality profile
+#       older_than_days: 730
+#       grace_days: 7
+#       quality_profile: "HD-1080p"
+#
+#     - action: reencode          # Re-encode in place via Tdarr (requires tdarr: section)
+#       older_than_days: 1095
+#       grace_days: 14
+#
+#     - action: archive           # Move folder to archive directory (requires archive: section)
+#       older_than_days: 1825
+#       grace_days: 30
+#
+#     - action: delete            # Permanently remove from Plex, unmonitor in Radarr
+#       older_than_days: 3650
+#       grace_days: 30
 
-# ── Tdarr re-encode (optional, used when downgrade.method = "tdarr") ──────────
+# ── Tdarr re-encode (optional, used by the "reencode" retirement stage) ────────
+# The target library must have Process Library enabled with a downscale flow.
+# Updatarr submits files directly via API — folder watching is not required.
 # tdarr:
 #   url: http://tdarr:8265        # Tdarr server URL
-#   library_id: "aBcDeFgHi"      # Library ID (see README — not the UI integer)
-#   path_replace_from: /movies    # Radarr-side path prefix to replace (optional)
+#   library_id: "aBcDeFgHi"      # Internal library ID (see README — not the UI integer)
+#   path_replace_from: /movies    # Radarr-side path prefix (optional path translation)
 #   path_replace_to: /mnt/media/downscale/movies  # Tdarr-side path prefix
 
-# ── Archive (optional, used when downgrade.method = "archive") ────────────────
-# Moves the entire movie folder to an archive directory and unmonitors the movie
-# in Radarr. No transcoding. The archive folder can be added as a separate Plex
-# library. Updatarr must have filesystem read/write access to both paths.
+# ── Archive (optional, used by the "archive" and "delete" retirement stages) ──
+# Archive moves the entire movie folder and unmonitors it in Radarr.
+# Delete uses Plex to locate the file (wherever it is) then removes it from disk.
+# The path_replace pair is reused by Delete for path translation if needed.
+# Updatarr must have read/write access to both source and archive directories.
 # archive:
-#   path: /archive/movies          # destination as Updatarr sees it
-#   path_replace_from: /movies     # Radarr-side path prefix (optional)
-#   path_replace_to: /mnt/media/movies  # Updatarr-accessible source path prefix
+#   path: /archive/movies          # Destination as Updatarr sees it
+#   path_replace_from: /movies     # Radarr/Plex-side path prefix (optional)
+#   path_replace_to: /mnt/media/movies  # Updatarr-accessible equivalent
 
 # Cron schedule for automatic sync (null to disable, manual only)
-schedule: "0 4 * * *"   # daily at 4am
+schedule: "0 4 * * *"   # Daily at 4am
 
 # ── MDBList list mappings ─────────────────────────────────────────────────────
-# Each list maps to a specific quality profile (independent of Plex config above).
+# Each list maps to a specific quality profile.
 lists:
   - list_id: "123456"
     list_name: "4K Must-Watch"
     quality_profile: "Ultra-HD"
     enabled: true
     add_missing: false
-    search_on_update: false   # If true, triggers a Radarr search when a movie's profile is updated
+    search_on_update: false
 
   - list_id: "654321"
     list_name: "HD Watchlist"

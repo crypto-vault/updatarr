@@ -16,17 +16,26 @@ On a schedule (or triggered manually), Updatarr fetches movies from your configu
 
 ### Retirement queue
 
-Updatarr also works in reverse. The optional **retirement queue** identifies movies in your library that are currently stored in 4K (verified against your actual Plex library files, not just the Radarr profile) and have been in your collection long enough to no longer be a priority — based on how long ago they were added to Plex and a configurable age threshold. Qualifying movies are moved to a **retirement queue** with a grace period before execution, giving you time to review and intervene.
+Updatarr also works in reverse. The optional **retirement queue** identifies movies in your library that have been in your collection long enough that they're no longer a priority — based on how long ago they were added (to Plex or Radarr) and a configurable age threshold. Qualifying movies are placed into a **retirement queue** with a grace period before execution, giving you time to review and intervene.
 
-The queue is fully visual — poster cards with countdown timers showing days until each retirement executes. Movies can be excluded permanently (they'll never be re-queued on future syncs) or restored to the queue at any time. The exclusion list is managed from the same page.
+The queue is fully visual — poster cards with countdown timers and a coloured action badge showing exactly what will happen to each movie. Movies can be excluded permanently (they'll never be re-queued on future syncs) or restored to the queue at any time.
 
 ![Retirement Queue](docs/queue-preview.png)
 
-**Retirement methods:**
+#### Multi-stage pipeline
 
-- **Redownload** (default) — deletes the existing file and triggers Radarr to search for a new copy at the target quality profile.
-- **Tdarr re-encode** — instead of deleting the file, submits it to a [Tdarr](https://home.tdarr.io/) library for in-place re-encoding. The file stays in your collection at all times; Tdarr transcodes it according to your configured flow (e.g. AV1 at a lower bitrate). Radarr's quality profile is updated to reflect the new target. Requires a Tdarr instance with a dedicated library configured for the downscale workflow.
-- **Archive** — moves the entire movie folder (file + subtitles + any sidecar files) to a separate archive directory and unmonitors the movie in Radarr. No transcoding, no re-download — the file is preserved exactly as-is. Radarr stops tracking it, Bazarr stops looking for subtitles, and no further retirement logic applies. The archive directory can be added as its own Plex library so the movie remains watchable.
+Rather than a single retirement method, Updatarr supports an **ordered pipeline of stages**. Each stage has its own age threshold and action, so you can chain multiple operations over time:
+
+> *Archive movies after 2 years → permanently delete them after 5 years*
+
+Or more elaborate pipelines mixing any of the four actions. Stages are independent — each fires once per movie based on its own threshold, and completing one stage doesn't prevent later stages from triggering. You can configure any combination, in any order, with none required.
+
+**Stage actions:**
+
+- **Redownload** — updates the quality profile in Radarr, deletes the existing file, and triggers a new search at the target profile. Use this to downgrade a stored 4K copy to 1080p once a movie is older than its priority window.
+- **Reencode** — submits the existing file to a [Tdarr](https://home.tdarr.io/) library for in-place re-encoding (e.g. AV1 at a lower bitrate). The file stays in your collection at all times and Radarr's profile is updated. Requires Tdarr configured below.
+- **Archive** — moves the entire movie folder (file + subtitles + sidecar files) to a separate archive directory and unmonitors the movie in Radarr. No re-encode, no re-download — the file is preserved exactly as-is. The archive directory can be added as its own Plex library so the movie stays watchable.
+- **Delete** — permanently removes the movie from Plex. Updatarr gets the current file location directly from Plex (so this works whether the file is still in the main library or has been previously archived), deletes the folder from disk, and unmonitors the movie in Radarr. The Radarr entry is kept so the movie won't be automatically re-requested.
 
 ---
 
@@ -62,7 +71,7 @@ uvicorn app.main:app --reload --port 7777
 
 ## Configuration
 
-Updatarr has a built-in **Settings page** (accessible at `http://localhost:7777/settings`) where you can configure all sources, schedules, and downgrade rules through a UI — no need to edit any files directly. The `updatarr.yml` file is the underlying config store and is documented here for reference, but you should rarely need to touch it manually.
+Updatarr has a built-in **Settings page** (accessible at `http://localhost:7777/settings`) where you can configure all sources, schedules, and retirement stages through a UI — no need to edit any files directly. The `updatarr.yml` file is the underlying config store and is documented here for reference, but you should rarely need to touch it manually.
 
 The config file lives at `/config/updatarr.yml` inside the container (or `./updatarr.yml` for local dev). A full example with all options:
 
@@ -104,22 +113,43 @@ ombi:
   # root_folder: /movies
   # minimum_availability: released
 
-# ── Downgrade (optional) ──────────────────────────────────────────────────────
+# ── Retirement queue (optional) ───────────────────────────────────────────────
+# Processes old movies through an ordered pipeline of stages.
+# Each stage has its own age threshold and action; all are optional.
 # downgrade:
 #   enabled: false
-#   quality_profile: "HD-1080p"   # Target profile for downgraded movies
-#   older_than_days: 730          # Qualify movies added more than N days ago
-#   grace_days: 7                 # Days to wait before executing the downgrade
-#   date_source: plex             # "radarr" (date added to Radarr) or "plex" (date added to Plex)
-#   upgrade_threshold: true       # Prevent sync sources from re-upgrading old movies
-#   method: redownload            # "redownload" (default) or "tdarr"
+#   date_source: plex             # "plex" (added to Plex) or "radarr" (added to Radarr)
+#   upgrade_threshold: true       # Prevent sync sources from re-upgrading retired movies
+#   stages:
+#     - action: redownload        # Downgrade quality profile and re-grab
+#       older_than_days: 730
+#       grace_days: 7
+#       quality_profile: "HD-1080p"
+#
+#     - action: reencode          # Re-encode in place via Tdarr (requires tdarr: section)
+#       older_than_days: 1095
+#       grace_days: 14
+#
+#     - action: archive           # Move folder to archive dir (requires archive: section)
+#       older_than_days: 1825
+#       grace_days: 30
+#
+#     - action: delete            # Permanently remove from Plex, unmonitor in Radarr
+#       older_than_days: 3650
+#       grace_days: 30
 
-# ── Tdarr re-encode (optional, used when downgrade.method = "tdarr") ──────────
+# ── Tdarr re-encode (optional, used by the "reencode" retirement stage) ────────
 # tdarr:
 #   url: http://tdarr:8265        # Tdarr server URL
 #   library_id: "aBcDeFgHi"      # Library ID from Tdarr (not the UI integer — see below)
 #   path_replace_from: /movies    # Radarr-side path prefix to replace (optional)
 #   path_replace_to: /mnt/media/downscale/movies  # Tdarr-side path prefix
+
+# ── Archive (optional, used by the "archive" retirement stage) ────────────────
+# archive:
+#   path: /archive/movies          # destination as Updatarr sees it
+#   path_replace_from: /movies     # Radarr-side path prefix (optional)
+#   path_replace_to: /mnt/media/movies  # Updatarr-accessible source path prefix
 
 # Cron schedule for automatic sync (null to disable, manual only)
 schedule: "0 4 * * *"            # Daily at 4am
@@ -214,19 +244,43 @@ Each entry under `lists:` supports:
 
 ### Retirement queue
 
+Top-level options under `downgrade:`:
+
 | Option | Default | Description |
 |---|---|---|
 | `enabled` | `false` | Enable the retirement queue |
-| `quality_profile` | required | Target Radarr quality profile (used by `redownload` and `tdarr` methods) |
+| `date_source` | `radarr` | Age reference: `plex` (date added to Plex) or `radarr` (date added to Radarr) |
+| `upgrade_threshold` | `true` | Prevent sync sources from re-upgrading movies that are at or past the first stage's age threshold |
+| `stages` | `[]` | Ordered list of retirement stages (see below) |
+
+#### Retirement stages
+
+Each entry under `downgrade.stages` supports:
+
+| Option | Default | Description |
+|---|---|---|
+| `action` | `redownload` | What to do: `redownload`, `reencode`, `archive`, or `delete` |
 | `older_than_days` | `730` | Only qualify movies added more than N days ago |
-| `grace_days` | `7` | Days to wait in queue before retirement executes |
-| `date_source` | `plex` | Age reference: `plex` (date added to Plex) or `radarr` (date added to Radarr) |
-| `upgrade_threshold` | `true` | Prevent sync sources from re-upgrading movies that are in or past the retirement threshold |
-| `method` | `redownload` | `redownload` — delete and re-grab at target profile; `tdarr` — submit to Tdarr for in-place re-encoding; `archive` — move folder to archive directory and unmonitor |
+| `grace_days` | `7` | Days to wait in queue before the stage executes |
+| `quality_profile` | — | Target Radarr quality profile — **required for `redownload` only** |
+| `enabled` | `true` | Enable or disable this stage without removing it |
 
-### Tdarr re-encode
+**Stage actions:**
 
-Used when `downgrade.method` is set to `tdarr`.
+| Action | Requires | What happens |
+|---|---|---|
+| `redownload` | `quality_profile` | Updates the Radarr profile, deletes the existing file, triggers a new search |
+| `reencode` | Tdarr configured | Submits the current file to Tdarr for in-place re-encoding |
+| `archive` | Archive configured | Moves the movie folder to the archive directory, unmonitors in Radarr |
+| `delete` | Plex configured | Gets the current file path from Plex, deletes the folder from disk, unmonitors in Radarr (entry kept to prevent re-requests) |
+
+Stages are sorted and applied in ascending order of `older_than_days`. Each stage fires independently — a movie can be archived at 2 years and deleted at 5 years regardless of configuration order. Each stage tracks its own completion per movie, so re-running a sync won't re-queue a stage that already executed.
+
+> **Note:** Old flat configs (`method`, `quality_profile`, `older_than_days`, `grace_days` at the top level) are automatically migrated to a single-stage `stages` list on first load. No manual action required.
+
+### Reencode (Tdarr)
+
+Required when any retirement stage uses `action: reencode`.
 
 | Option | Default | Description |
 |---|---|---|
@@ -241,7 +295,7 @@ The target Tdarr library must have **Process Library** enabled and a flow or plu
 
 ### Archive
 
-Used when `downgrade.method` is set to `archive`.
+Required when any retirement stage uses `action: archive`.
 
 | Option | Default | Description |
 |---|---|---|
@@ -257,6 +311,8 @@ volumes:
   - /mnt/media/movies:/mnt/media/movies
   - /mnt/media/archive:/archive/movies
 ```
+
+The `path_replace_from` / `path_replace_to` pair is also used by the **Delete** stage to translate Plex file paths to container-accessible paths. If Plex and Updatarr mount the same storage under different prefixes, set these values under `archive:` and the Delete stage will apply the same translation automatically.
 
 ---
 
