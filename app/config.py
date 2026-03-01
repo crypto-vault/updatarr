@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Optional, Any
 import yaml
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, field_validator
 
 
 class RadarrConfig(BaseModel):
@@ -56,11 +56,17 @@ class OmbiConfig(BaseModel):
 
 
 class RetirementStage(BaseModel):
-    action: str = "redownload"   # "redownload" | "reencode" | "archive" | "delete"
+    action: str = "redownload"            # "redownload" | "reencode" | "archive" | "delete"
     older_than_days: int = 730
     grace_days: int = 7
-    quality_profile: str = ""    # only used by "redownload" action
+    quality_profile: Optional[str] = ""  # only used by "redownload" action
     enabled: bool = True
+
+    @field_validator("quality_profile", mode="before")
+    @classmethod
+    def _coerce_quality_profile(cls, v: Any) -> str:
+        """Treat null/None from YAML as empty string."""
+        return v if v is not None else ""
 
     @model_validator(mode="after")
     def _migrate_tdarr_action(self) -> "RetirementStage":

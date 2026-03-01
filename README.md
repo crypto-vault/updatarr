@@ -34,8 +34,8 @@ Or more elaborate pipelines mixing any of the four actions. Stages are independe
 
 - **Redownload** — updates the quality profile in Radarr, deletes the existing file, and triggers a new search at the target profile. Use this to downgrade a stored 4K copy to 1080p once a movie is older than its priority window.
 - **Reencode** — submits the existing file to a [Tdarr](https://home.tdarr.io/) library for in-place re-encoding (e.g. AV1 at a lower bitrate). The file stays in your collection at all times and Radarr's profile is updated. Requires Tdarr configured below.
-- **Archive** — moves the entire movie folder (file + subtitles + sidecar files) to a separate archive directory and unmonitors the movie in Radarr. No re-encode, no re-download — the file is preserved exactly as-is. The archive directory can be added as its own Plex library so the movie stays watchable.
-- **Delete** — permanently removes the movie from Plex. Updatarr gets the current file location directly from Plex (so this works whether the file is still in the main library or has been previously archived), deletes the folder from disk, and unmonitors the movie in Radarr. The Radarr entry is kept so the movie won't be automatically re-requested.
+- **Archive** — moves the entire movie folder (file + subtitles + sidecar files) to a separate archive directory and unmonitors the movie in Radarr. No re-encode, no re-download — the file is preserved exactly as-is. The archive directory can be added as its own Plex library or added to the main library so the movie stays watchable.
+- **Delete** — permanently removes the movie from Plex. Updatarr gets the current file location directly from Plex (so this works whether the file is still in the main library or has been previously archived), deletes the folder from disk, and unmonitors the movie in Radarr. The Radarr entry is kept so the movie won't be automatically re-requested by future import lists.
 
 ---
 
